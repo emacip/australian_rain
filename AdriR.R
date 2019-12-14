@@ -1,8 +1,10 @@
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(VIM)
 library(readr)
 library(GGally)
+library()
 
 
 
@@ -28,4 +30,63 @@ weatherAUS %>% select(MinTemp,MaxTemp,Rainfall,WindGustSpeed,RainTomorrow) %>%
   ggpairs(columns = 1:5, ggplot2::aes(colour=RainTomorrow))
 
 
-##Mis variables WindDir9am, WindDir3pm, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Pressure9am, Pressure3pm
+## (categórica)   WindDir9am, WindDir3pm, 
+## (cuantitativa) WindSpeed9am, WindSpeed3pm,  Humidity9am, Humidity3pm, Pressure9am, Pressure3pm
+
+
+## Variables categoricas (politómicas)
+
+default.stringsAsFactors()
+
+## WindDir9am
+
+var_WindDir9am = weatherAUS$WindDir9am
+length(levels(var_WindDir9am))
+ggplot(data=weatherAUS, aes(x=WindDir9am, y=RainTomorrow)) + geom_bar(stat="identity", position="stack") + theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#comparo con raintomorrow
+
+ggplot(weatherAUS, aes(WindDir9am, ..count..)) + geom_bar(aes(fill = RainTomorrow),position = "dodge")+ theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#factorizamos aqui simplemente las categorizo luego hay que hacer un analisis con las variables dummy 
+weatherAUSnuevo = weatherAUS
+
+weatherAUSnuevo$WindDir9am = factor(weatherAUS$WindDir9am)
+
+## WindDir3pm
+
+var_WindDir3pm = weatherAUS$WindDir3pm
+length(levels(var_WindDir3pm))
+ggplot(data=weatherAUS, aes(x=WindDir3pm, y=RainTomorrow)) + geom_bar(stat="identity", position="stack") + theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#comparo con raintomorrow
+
+ggplot(weatherAUS, aes(WindDir3pm, ..count..)) + geom_bar(aes(fill = RainTomorrow),position = "dodge")+ theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#factorizamos aqui simplemente las categorizo luego hay que hacer un analisis con las variables dummy 
+weatherAUSnuevo = weatherAUS
+
+weatherAUSnuevo$WindDir3pm = factor(weatherAUS$WindDir3pm)
+
+## Variables cuantitativa
+
+## WindSpeed9am
+
+var_MinTemp = weatherAUS$MinTemp
+#Medidas de centralidad
+summary(var_MinTemp)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_MinTemp)
+
+length(var_MinTemp)
+# Basic histogram
+ggplot(weatherAUS, aes(x=MinTemp)) + geom_histogram() + ggtitle('Histograma de la Temperatura Mínima')
+# Basic Density plot
+ggplot(weatherAUS, aes(x = MinTemp)) + geom_density() + ggtitle('Función de densidad de la Temperatura Mínima')
+# Basic box plot
+ggplot(weatherAUS, aes(y=MinTemp)) +  geom_boxplot() + ggtitle('Boxplot de la Temperatura Mínima')
+# Basic scatter plot
+ggplot(weatherAUS, aes(x=MinTemp, y=Location)) + geom_point() 
