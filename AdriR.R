@@ -26,3 +26,6 @@ weatherAUS %>% select(Evaporation,WindDir9am,WindDir3pm,WindSpeed9am,WindSpeed3p
 weatherAUS %>% select(MinTemp,MaxTemp,Rainfall,WindGustSpeed,RainTomorrow) %>%
   na.omit() %>%
   ggpairs(columns = 1:5, ggplot2::aes(colour=RainTomorrow))
+
+
+##Mis variables WindDir9am, WindDir3pm, WindSpeed9am, WindSpeed3pm, Humidity9am, Humidity3pm, Pressure9am, Pressure3pm
