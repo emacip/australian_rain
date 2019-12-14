@@ -72,21 +72,21 @@ weatherAUSnuevo$WindDir3pm = factor(weatherAUS$WindDir3pm)
 
 ## WindSpeed9am
 
-var_MinTemp = weatherAUS$MinTemp
+var_WindSpeed9am = weatherAUS$WindSpeed9am
 #Medidas de centralidad
-summary(var_MinTemp)
+summary(var_WindSpeed9am)
 #medidas de dispersión
 medidas_dispersion<-function(x) {
   return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
 #Devuelve NAs porque hay NAs en la columna.
-medidas_dispersion(var_MinTemp)
+medidas_dispersion(var_WindSpeed9am)
 
-length(var_MinTemp)
+length(var_WindSpeed9am)
 # Basic histogram
-ggplot(weatherAUS, aes(x=MinTemp)) + geom_histogram() + ggtitle('Histograma de la Temperatura Mínima')
+ggplot(weatherAUS, aes(x=WindSpeed9am)) + geom_histogram() + ggtitle('Histograma de WindSpeed9am')
 # Basic Density plot
-ggplot(weatherAUS, aes(x = MinTemp)) + geom_density() + ggtitle('Función de densidad de la Temperatura Mínima')
+ggplot(weatherAUS, aes(x = WindSpeed9am)) + geom_density() + ggtitle('Función de densidad de WindSpeed9am')
 # Basic box plot
-ggplot(weatherAUS, aes(y=MinTemp)) +  geom_boxplot() + ggtitle('Boxplot de la Temperatura Mínima')
+ggplot(weatherAUS, aes(y=WindSpeed9am)) +  geom_boxplot() + ggtitle('Boxplot de WindSpeed9am')
 # Basic scatter plot
-ggplot(weatherAUS, aes(x=MinTemp, y=Location)) + geom_point() 
+ggplot(weatherAUS, aes(x=WindSpeed9am, y=RainTomorrow)) + geom_point() 
