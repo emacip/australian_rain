@@ -9,8 +9,9 @@ library()
 
 
 weatherAUS <- read_csv("weatherAUS_2.csv")
-weatherAUS_WindDir9am <- select(weatherAUS,WindDir9am)
-weatherAUS_WindDir9am
+
+summary(weatherAUS)
+
 
 weatherAUS %>% select(Cloud9am,Cloud3pm,Temp9am,Temp3pm,RainToday,RainTomorrow) %>%
   na.omit() %>%
@@ -45,6 +46,10 @@ ggplot(data=weatherAUS, aes(x=WindDir9am, y=RainTomorrow)) + geom_bar(stat="iden
 
 #comparo con raintomorrow
 
+with(weatherAUS, table(WindDir9am, RainTomorrow))
+(xtabs(~ RainTomorrow + WindDir9am, data = weatherAUS))
+
+
 ggplot(weatherAUS, aes(WindDir9am, ..count..)) + geom_bar(aes(fill = RainTomorrow),position = "dodge")+ theme(axis.text.x=element_text(angle=90,hjust=1))
 
 #factorizamos aqui simplemente las categorizo luego hay que hacer un analisis con las variables dummy 
@@ -59,6 +64,11 @@ length(levels(var_WindDir3pm))
 ggplot(data=weatherAUS, aes(x=WindDir3pm, y=RainTomorrow)) + geom_bar(stat="identity", position="stack") + theme(axis.text.x=element_text(angle=90,hjust=1))
 
 #comparo con raintomorrow
+
+with(weatherAUS, table(WindDir3pm, RainTomorrow))
+ftable(xtabs(~ RainTomorrow + WindDir3pm, data = weatherAUS))
+
+
 
 ggplot(weatherAUS, aes(WindDir3pm, ..count..)) + geom_bar(aes(fill = RainTomorrow),position = "dodge")+ theme(axis.text.x=element_text(angle=90,hjust=1))
 
@@ -89,6 +99,10 @@ ggplot(weatherAUS, aes(x = WindSpeed9am)) + geom_density() + ggtitle('Función d
 ggplot(weatherAUS, aes(y=WindSpeed9am)) +  geom_boxplot() + ggtitle('Boxplot de WindSpeed9am')
 # Basic scatter plot
 ggplot(weatherAUS, aes(x=WindSpeed9am, y=RainTomorrow)) + geom_point() 
+
+
+ggplot(weatherAUS, aes(x = WindSpeed9am, fill = RainTomorrow)) + 
+  geom_dotplot( stackgroups = TRUE, binpositions="all")
 
 ## WindSpeed3pm
 
@@ -194,4 +208,140 @@ ggplot(weatherAUS, aes(x = Pressure3pm)) + geom_density() + ggtitle('Función de
 ggplot(weatherAUS, aes(y=Pressure3pm)) +  geom_boxplot() + ggtitle('Boxplot de Pressure3pm')
 # Basic scatter plot
 ggplot(weatherAUS, aes(x=Pressure3pm, y=RainTomorrow)) + geom_point() 
+
+#Windir & winspeed
+
+weatherAUS %>%
+  group_by(WindDir9am) %>%
+  summarize(avg_WindSpeed9am = mean(WindSpeed9am)) %>%
+  ggplot(aes(x = avg_WindSpeed9am, y = reorder(WindDir9am, avg_WindSpeed9am))) + 
+  geom_point(size = 5)
+
+weatherAUS %>%
+  group_by(WindDir3pm) %>%
+  summarize(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
+  ggplot(aes(x = avg_WindSpeed3pm, y = reorder(WindDir3pm, avg_WindSpeed3pm))) + 
+  geom_point(size = 5)
+
+qplot(log10(WindSpeed9am), log10(WindSpeed3pm), data = weatherAUS)
+
+qplot(log10(WindSpeed9am), log10(WindSpeed3pm), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre velocidades de viento a diferentes horas')
+
+qplot(WindSpeed9am, WindSpeed3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre velocidades de viento a diferentes horas y lluvia al dia siguiente')
+
+weatherAUS %>%
+  group_by(WindDir9am, RainTomorrow) %>% 
+  summarise(avg_WindSpeed9am = mean(WindSpeed9am)) %>%
+  ggplot(aes(x=WindDir9am, y=avg_WindSpeed9am, fill=RainTomorrow)) + geom_bar(stat = "identity",
+                                                         position = "dodge") + 
+  ggtitle("relacion entre direccion de viento y velocidad con la lluvia del dia siguiente")
+
+weatherAUS %>%
+  group_by(WindDir3pm, RainTomorrow) %>% 
+  summarise(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
+  ggplot(aes(x=WindDir3pm, y=avg_WindSpeed3pm, fill=RainTomorrow)) + geom_bar(stat = "identity",
+                                                                              position = "dodge") + 
+  ggtitle("relacion entre direccion de viento y velocidad con la lluvia del dia siguiente")
+
+#Humidity 
+
+qplot(log10(Humidity9am), log10(Humidity3pm), data = weatherAUS)
+
+qplot(log10(Humidity9am), log10(Humidity3pm), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre humedad a diferentes horas')
+
+qplot(Humidity9am, Humidity3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre humedad a diferentes horas y lluvia al dia siguiente')
+
+
+#Pressure
+
+qplot(log10(Pressure9am), log10(Pressure3pm), data = weatherAUS)
+
+qplot(log10(Pressure9am), log10(Pressure3pm), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure9am, Humidity3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+#humedad y presion
+
+qplot(log10(Pressure9am), log10(Humidity9am), data = weatherAUS)
+
+qplot(log10(Pressure9am), log10(Humidity9am), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure9am, Humidity9am, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+qplot(log10(Pressure3pm), log10(Humidity3pm), data = weatherAUS)
+
+qplot(log10(Pressure3pm), log10(Humidity3pm), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure3pm, Humidity3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+#presion y Winspeed
+
+qplot(log10(Pressure9am), log10(WindSpeed9am), data = weatherAUS)
+
+qplot(log10(Pressure9am), log10(WindSpeed9am), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure9am, WindSpeed9am, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+qplot(log10(Pressure3pm), log10(WindSpeed3pm), data = weatherAUS)
+
+qplot(log10(Pressure3pm), log10(WindSpeed3pm), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure3pm, WindSpeed3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+#humedad y Winspeed
+
+qplot(log10(Humidity9am), log10(WindSpeed9am), data = weatherAUS)
+
+qplot(log10(Humidity9am), log10(WindSpeed9am), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Humidity9am, WindSpeed9am, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+qplot(log10(Humidity3pm), log10(WindSpeed3pm), data = weatherAUS)
+
+qplot(log10(Humidity3pm), log10(WindSpeed3pm), data = weatherAUS) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Humidity3pm, WindSpeed3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
 
