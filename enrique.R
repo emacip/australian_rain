@@ -30,9 +30,9 @@ colnames(training_set)
 # Proportion of missing values
 data = training_set %>% select(Evaporation, Sunshine, WindGustDir, WindGustSpeed, RainToday, RISK_MM, RainTomorrow)
 vis_dat(data)
-vis_miss(data, warn_large_data = FALSE)
+vis_miss(train, warn_large_data = FALSE)
 (cols_withNa <- apply(data, 2, function(x) sum(is.na(x))))
-gg_miss_upset(data)
+gg_miss_upset(train)
 
 
 
@@ -215,7 +215,7 @@ ggplot(training_set, aes(x=WindGustSpeed, y=WindSpeed3pm)) + geom_point()
 
 
 #Imputación de valores faltantes
-(cols_withNa <- apply(data, 2, function(x) sum(is.na(x))))
+(cols_withNa <- apply(train, 2, function(x) sum(is.na(x))))
 #Converting categorical nominal values "Yes" and "No" to "0" and "1"
 rain_today
 rain_today[is.na(rain_today)] <- "No"
