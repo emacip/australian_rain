@@ -4,7 +4,20 @@ library(ggplot2)
 library(VIM)
 library(readr)
 library(GGally)
-library()
+library(corrplot)
+
+library(lattice)
+library(dplyr)
+library(VIM)
+library(mice)
+
+library(DMwR2)
+
+library(knitr)
+library(kableExtra)
+library(htmltools)
+library(bsplus)
+library(RColorBrewer)
 
 
 
@@ -342,6 +355,115 @@ qplot(log10(Humidity3pm), log10(WindSpeed3pm), data = weatherAUS) +
 qplot(Humidity3pm, WindSpeed3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
   geom_smooth() +
   ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+
+weatherAUSCorr <- weatherAUS %>% select(Temp9am, Temp3pm, Pressure9am,Pressure3pm,MinTemp,MaxTemp) %>% na.omit()
+  
+
+numeric <- map_lgl(weatherAUSCorr, is.numeric)
+
+correlations <- cor(weatherAUSCorr[,numeric])
+
+diag(correlations) <- 0
+
+high <- apply(abs(correlations) >= 0.8, 2, any)
+
+corrplot(correlations[high, high], method = "number")
+
+
+#Valores faltantes
+
+## (categórica)   WindDir9am, WindDir3pm, 
+## (cuantitativa) WindSpeed9am, WindSpeed3pm,  Humidity9am, Humidity3pm, Pressure9am, Pressure3pm
+
+
+weatherAUSFaltantes1 <- weatherAUS %>% select(WindDir9am, WindDir3pm, WindSpeed9am, WindSpeed3pm)
+
+aggr_plot <- aggr(weatherAUSFaltantes1, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+                  labels=names(weatherAUSFaltantes1), cex.axis=.7, gap=3, 
+                  ylab=c("Histogram of missing data","Pattern"))
+
+weatherAUSFaltantes2 <- weatherAUS %>% select(Humidity9am, Humidity3pm, Pressure9am, Pressure3pm)
+
+aggr_plot <- aggr(weatherAUSFaltantes2, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+                  labels=names(weatherAUSFaltantes2), cex.axis=.7, gap=3, 
+                  ylab=c("Histogram of missing data","Pattern"))
+
+weatherAUS %>% select(WindSpeed9am, WindSpeed3pm) %>% marginplot()
+
+weatherAUS %>% select(Humidity9am, Humidity3pm) %>% marginplot()
+
+weatherAUS %>% select(Pressure9am, Pressure3pm) %>% marginplot()
+
+
+
+weatherAUS %>% select(WindSpeed9am, WindSpeed3pm) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+
+weatherAUS %>% select(Humidity9am, Humidity3pm) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+
+weatherAUS %>% select(Pressure9am, Pressure3pm) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+
+
+par(mfrow=c(1,1))
+train_imputed0 <- mice(train_imputed[,c('Cloud3pm','Cloud9am')], seed=2018, print = F, m = 30)
+train_imputed1 <- mice::complete(train_imputed0)
+xyplot(train_imputed0, Cloud3pm ~Cloud9am)
+
+
+
+#modelo:
+
+
+lm_fit <- lm(variablerespuesta~., data=Datasetweather)
+summary(lm_fit)
+
+#cuando tengamos el dagta set habria qu eelgir cuales vamos a usar, pero mejor usar esta funcion
+
+for (metric in c("r2", "adjr2", "Cp", "bic")){plot(regfit_full, scale=metric)}
+
+regfit_fwd <- leaps::regsubsets(Salary~., Hitters, method="forward")
+for (metric in c("r2", "adjr2", "Cp", "bic")){plot(regfit_fwd, scale=metric)}
+
+
+regfit_bwd <- leaps::regsubsets(Salary~., Hitters, method="backward")
+for (metric in c("r2", "adjr2", "Cp", "bic")){plot(regfit_bwd, scale=metric)}
+
+#aqui seria aplicar el modelo
+
+x <- model.matrix(Salary~., Hitters_nona)[,-1]
+y <- Hitters_nona$Salary
+
+#lasso
+grid <- 10^seq(10,-2,length=100)
+
+set.seed(1234)
+cv_result <- cv.glmnet(x,y,alpha=1)
+plot(cv_result)
+
+best_lam <- cv_result$lambda.min
+out <- glmnet(x,y,alpha=1,lambda = best_lam)
+lasso_coef <- predict(out,type="coefficients",s=best_lam)[1:20,]
+lasso_coef[lasso_coef!=0]
+
+
+first_six <- max(which(cv_result$nzero == 6))
+my_lam <- cv_result$lambda[first_six]
+out_six <- glmnet(x,y,alpha=1,lambda = first_six)
+lasso_coef_six <- predict(out_six,type="coefficients")[1:20,]
+lasso_coef_six[lasso_coef_six!=0]
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,0 +1,107 @@
+---
+title: "RMd test"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+Temas a tratar en la presentacion que es interesante comentar:
+
+-Introduccion de los daots que hemos obtenido
+
+-filtro por ciudades que hemos elegido, costa suroeste de australia, elegir un mapa
+
+-Hemos utilizado la fecha de los datos para añadir el factor de estacion, pensabamos que era interesante y aportaba bastante informacion a los datos
+
+-Comienza la fase de EDA, primero enseñar los graficos que tenemos de comparacion de todas las variables 
+
+-enseñar ejemplos de las variables mas relevantes que tenemos
+  +min tempo y temp 9am
+  +min temp y max temp
+  +direccion del viento y la velocidad
+  +
+  
+-limpieza de datos que hemos realizado, ejemplos y completar nulos con KN
+
+- Transformaciones de las variables cuantitativas
+
+- proce4sado de las variables cualitativas 
+
+- ver que variables tienen sentido elegir y por que
+
+
+## Slide with Bullets
+
+-enseñar ejemplos de las variables mas relevantes que tenemos
+
+Adri
+
+ESTA tinee relevancia en la informacion de la lluvia al dia siguiente
+
+qplot(Humidity9am, Humidity3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre humedad a diferentes horas y lluvia al dia siguiente')
+  
+ESTA creo que no
+
+qplot(Pressure9am, Pressure3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+  
+ESTAS Dos variables no parecen muy relaccionadas
+
+qplot(Pressure9am, Humidity9am, data = weatherAUS, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+  
+  
+De aqui es interesante sacar el por que la mayoria de las altas velocidades vienen del SW
+
+weatherAUS %>%
+  group_by(WindDir9am) %>%
+  summarize(avg_WindSpeed9am = mean(WindSpeed9am)) %>%
+  ggplot(aes(x = avg_WindSpeed9am, y = reorder(WindDir9am, avg_WindSpeed9am))) + 
+  geom_point(size = 5)
+
+weatherAUS %>%
+  group_by(WindDir3pm) %>%
+  summarize(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
+  ggplot(aes(x = avg_WindSpeed3pm, y = reorder(WindDir3pm, avg_WindSpeed3pm))) + 
+  geom_point(size = 5)
+
+
+Interesante ver estga correlacion, elegir cuales poner
+
+  weatherAUSCorr <- weatherAUS %>% select(Temp9am, Temp3pm, Pressure9am,Pressure3pm,MinTemp,MaxTemp) %>% na.omit()
+    
+  
+  numeric <- map_lgl(weatherAUSCorr, is.numeric)
+  
+  correlations <- cor(weatherAUSCorr[,numeric])
+  
+  diag(correlations) <- 0
+  
+  high <- apply(abs(correlations) >= 0.8, 2, any)
+  
+  corrplot(correlations[high, high], method = "number")
+  
+
+
+  
+
+## Slide with R Output
+
+```{r cars, echo = TRUE}
+summary(cars)
+```
+
+## Slide with Plot
+
+```{r pressure}
+plot(pressure)
+```
+
