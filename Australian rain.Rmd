@@ -1,0 +1,1118 @@
+---
+title: "Lluvia en Australia"
+author: "Adrian Romero Hernandez, Enrique Macip Belmonte, Maria Ruiz Teixidor"
+date: "19 de diciembre de 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE,warning=FALSE)
+```
+
+## Introduccion
+
+Los datos obtenidos de Kaggle tienen la informacion atmosferica de varios años en australia, datos en los que viene incluida desde la velocidad del viento hasta la temperatura, en total 23 variables recogidas durante varios años en distintas ciudades de australia con las que se obtienen un data set de 140.000 lineas aproximadamente.
+
+Nuestro objetivo será predecir la lluvia del dia siguiente con los datos metereologicos del dia.
+
+
+
+
+## Primeros pasos sobre nuestro DataSet
+
+Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos cosas
+ 
+ -Utilizar una zona concreta de australia, sacada de la variable localizacion, de la cual elegimos 4 ciudades situadas en la costa sureste de Australia y 
+ -Utilizar la variable temporal de alguna forma, ya que considerabamos que tenia importancia pero no podiamos usar cada dia del año como un dato diferente, por lo que decidimos obtener apartir de la fecha la estacion del año en la que estaba cada linea,
+
+
+```{r librerias y seed, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(VIM)
+library(wesanderson)
+library(GGally)
+library(corrplot)
+library(mice)
+library(egg)
+library(kableExtra)
+library(car)
+library(fastDummies)
+library(caret)
+library(glmnet)
+library(blorr)
+
+
+set.seed(123)
+```
+```{r Dataset train y test, include=FALSE}
+
+weatherAUS <- read_csv("weatherAUS_2.csv")
+
+
+train_ind <- sample(seq_len(nrow(weatherAUS)), size = 0.80 * nrow(weatherAUS))
+train <- weatherAUS[train_ind, ]
+temp <- weatherAUS[-train_ind, ]
+test_val_ind<- sample(seq_len(nrow(temp)), size = 0.50 * nrow(temp))
+test <- temp[test_val_ind, ]
+validation <- temp[-test_val_ind, ]
+
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+
+```
+
+## Variables
+
+Analizamos las variables individuales por separado con distintos graficos.
+
+<center>
+```{r Variables1}
+#Estudio variables
+#Location
+var_location = train$Location
+ggplot(data=train, aes(x=Location, y=RainTomorrow)) + geom_bar(stat="identity", position="stack") + theme(axis.text.x=element_text(angle=90,hjust=1))
+#comparación con el target
+ggplot(train, aes(Location)) + geom_bar(aes( fill = RainTomorrow), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) + scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4"))
+
+
+#MinTemp
+var_MinTemp = train$MinTemp
+#Medidas de centralidad
+summary(var_MinTemp)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  x1 = x %>% na.omit()
+  return(list('rango'= range(x1), 'Varianza'= var(x1), 'Desciación_tipica'= sd(x1)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_MinTemp)
+
+length(var_MinTemp)
+# Basic histogram
+ggplot(train, aes(x=MinTemp)) + geom_histogram() + ggtitle('Histograma de la Temperatura Mínima')
+# Basic Density plot
+ggplot(train, aes(x = MinTemp)) + geom_density(fill="white") + ggtitle('Función de densidad de la Temperatura Mínima')
+# Basic box plot
+ggplot(train, aes(y=MinTemp)) +  geom_boxplot(fill="white") + ggtitle('Boxplot de la Temperatura Mínima')
+
+#MaxTemp
+var_MaxTemp = train$MaxTemp
+#Medidas de centralidad
+summary(var_MinTemp)
+#Medidas de dispersión
+medidas_dispersion(var_MaxTemp)
+# Basic histogram
+ggplot(train, aes(x=var_MaxTemp)) + geom_histogram()  + ggtitle('Histograma de la Temperatura Máxima')
+# Basic Density plot
+ggplot(train, aes(x = MinTemp)) + geom_density(fill= 'white') + ggtitle('Función de densidad de la Temperatura Máxima')
+# Basic box plot
+ggplot(train, aes(y=var_MaxTemp)) +  geom_boxplot() + ggtitle('Boxplot de la Temperatura Máxima')
+
+#RainFall: The amount of rainfall recorded for the day in mm
+var_Rainfall = train$Rainfall
+#Medidas de centralidad
+summary(var_Rainfall)
+#Medidas de dispersión
+medidas_dispersion(var_Rainfall)
+# Basic histogram
+ggplot(train, aes(x=var_Rainfall)) + geom_histogram() + ggtitle('Histograma de los mm de lluvia')
+# Basic Density plot
+ggplot(train, aes(x = var_Rainfall)) + geom_density() + ggtitle('Función de densidad de los mm de lluvia')
+# Basic box plot
+ggplot(train, aes(y=var_Rainfall)) +  geom_boxplot() + ggtitle('Boxplot de los mm de lluvia')
+
+#Evaporation: The so-called Class A pan evaporation (mm) in the 24 hours to 9am
+var_Evaporation = train$Evaporation
+#Medidas de centralidad
+summary(var_Evaporation)
+#Medidas de dispersión
+medidas_dispersion(var_Evaporation)
+# Basic histogram
+ggplot(train, aes(x=var_Evaporation)) + geom_histogram() + ggtitle('Histograma de los mm de evaporación')
+# Basic Density plot
+ggplot(train, aes(x = var_Evaporation)) + geom_density(fill='white') + ggtitle('Función de densidad de los mm de evaporación')
+# Basic box plot
+ggplot(train, aes(y=var_Evaporation)) +  geom_boxplot(fill='white') + ggtitle('Boxplot de los mm de evaporación')
+# Basic scatter plot
+#ggplot(train, aes(x=Evaporation, y=Location)) + geom_point()
+
+#Cloud 9am
+var_Cloud9am = train$Cloud9am
+#Medidas de centralidad
+summary(var_Cloud9am)
+#Medidas de dispersión
+medidas_dispersion(var_Cloud9am)
+# Basic histogram
+ggplot(train, aes(x=var_Cloud9am)) + geom_histogram() + ggtitle('Histograma de los mm de evaporación')
+# Basic Density plot
+ggplot(train, aes(x = var_Cloud9am)) + geom_density(fill='white') + ggtitle('Función de densidad de los mm de evaporación')
+# Basic box plot
+ggplot(train, aes(y=var_Cloud9am)) +  geom_boxplot(fill='white') + ggtitle('Boxplot de los mm de evaporación')
+
+#Cloud 3pm
+var_Cloud3pm = train$Cloud3pm
+#Medidas de centralidad
+summary(var_Cloud3pm)
+#Medidas de dispersión
+medidas_dispersion(var_Cloud3pm)
+# Basic histogram
+ggplot(train, aes(x=var_Cloud3pm)) + geom_histogram() + ggtitle('Histograma de los mm de evaporación')
+# Basic Density plot
+ggplot(train, aes(x = var_Cloud3pm)) + geom_density(fill='white') + ggtitle('Función de densidad de los mm de evaporación')
+# Basic box plot
+ggplot(train, aes(y=var_Cloud3pm)) +  geom_boxplot(fill='white') + ggtitle('Boxplot de los mm de evaporación')
+
+#Temp 9am
+var_Temp9am = train$Temp9am
+#Medidas de centralidad
+summary(var_Temp9am)
+#Medidas de dispersión
+medidas_dispersion(var_Temp9am)
+# Basic histogram
+ggplot(train, aes(x=var_Temp9am)) + geom_histogram() + ggtitle('Histograma de los mm de evaporación')
+# Basic Density plot
+ggplot(train, aes(x = var_Temp9am)) + geom_density(fill='white') + ggtitle('Función de densidad de los mm de evaporación')
+# Basic box plot
+ggplot(train, aes(y=var_Temp9am)) +  geom_boxplot(fill='white') + ggtitle('Boxplot de los mm de evaporación')
+
+#Temp3pm
+var_Temp3pm = train$Temp3pm
+#Medidas de centralidad
+summary(var_Temp3pm)
+#Medidas de dispersión
+medidas_dispersion(var_Temp3pm)
+# Basic histogram
+ggplot(train, aes(x=var_Temp3pm)) + geom_histogram() + ggtitle('Histograma de los mm de evaporación')
+# Basic Density plot
+ggplot(train, aes(x = var_Temp3pm)) + geom_density(fill='white') + ggtitle('Función de densidad de los mm de evaporación')
+# Basic box plot
+ggplot(train, aes(y=var_Temp3pm)) +  geom_boxplot(fill='white') + ggtitle('Boxplot de los mm de evaporación')
+
+
+#TODO poner misma dataset
+data <- train
+# Evaporation
+evap <- data$Evaporation
+summary(evap)
+medidas_dispersion(evap)
+hist(evap)
+# missing data
+aggr(evap, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(evap), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# boxplot
+ggplot(data, aes(y=evap)) +  geom_boxplot() 
+# scatter plot
+ggplot(data, aes(x=data$RainTomorrow, y=evap)) + geom_point()
+# margin plot
+data %>% select(Evaporation, Sunshine) %>% marginplot()
+
+
+# Sunshine
+sunshine <- data$Sunshine
+summary(sunshine)
+medidas_dispersion(sunshine)
+hist(sunshine)
+# missing data
+aggr(sunshine, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(sunshine), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# boxplot
+ggplot(data, aes(y=sunshine)) +  geom_boxplot() 
+# scatter plot
+ggplot(data, aes(x=data$RainTomorrow, y=sunshine)) + geom_point()
+
+
+# WindGustDir
+wind_gust_dir <- data$WindGustDir
+summary(wind_gust_dir)
+# missing data
+aggr(wind_gust_dir, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(wind_gust_dir), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# histogram
+ggplot(data, aes(x = wind_gust_dir)) + geom_bar()
+
+
+# WindGustSpeed
+wind_gust_speed <- data$WindGustSpeed
+summary(wind_gust_speed)
+hist(wind_gust_speed)
+# missing data
+aggr(wind_gust_speed, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(wind_gust_speed), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# boxplot
+ggplot(data, aes(y=wind_gust_speed)) +  geom_boxplot() 
+# scatter plot
+ggplot(data, aes(x=data$WindGustDir, y=wind_gust_speed)) + geom_point()
+
+
+# RainToday
+rain_today <- data$RainToday
+summary(rain_today)
+# missing data
+aggr(rain_today, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(rain_today), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# histogram
+ggplot(data, aes(x = rain_today)) + geom_bar()
+
+
+# RISK_MM 
+# The amount of next day rain in mm. Used to create response variable RainTomorrow. 
+# How much rain recorded in millimetres. 
+risk_mm <- data$RISK_MM
+summary(risk_mm)
+hist(risk_mm)
+# missing data
+aggr(risk_mm, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(risk_mm), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# boxplot
+ggplot(data, aes(y=risk_mm)) +  geom_boxplot() 
+# scatter plot
+ggplot(data, aes(x=data$RainTomorrow, y=risk_mm)) + geom_point()
+
+
+# RainTomorrow
+rain_tomorrow <- data$RainTomorrow
+summary(rain_tomorrow)
+# missing data
+aggr(rain_tomorrow, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+     labels=names(rain_tomorrow), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+# histogram
+ggplot(data, aes(x = rain_tomorrow)) + geom_bar()
+
+
+## Variables categoricas (politómicas)
+
+## WindDir9am
+
+var_WindDir9am = train$WindDir9am
+length(levels(var_WindDir9am))
+ggplot(data=train, aes(x=WindDir9am, y=RainTomorrow)) + geom_bar(stat="identity", position="stack") + theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#comparo con raintomorrow
+
+with(train, table(WindDir9am, RainTomorrow))
+(xtabs(~ RainTomorrow + WindDir9am, data = train))
+
+
+ggplot(train, aes(WindDir9am, ..count..)) + geom_bar(aes(fill = RainTomorrow),position = "dodge")+ theme(axis.text.x=element_text(angle=90,hjust=1))
+
+
+
+## WindDir3pm
+
+var_WindDir3pm = train$WindDir3pm
+length(levels(var_WindDir3pm))
+ggplot(data=train, aes(x=WindDir3pm, y=RainTomorrow)) + geom_bar(stat="identity", position="stack") + theme(axis.text.x=element_text(angle=90,hjust=1))
+
+#comparo con raintomorrow
+
+with(train, table(WindDir3pm, RainTomorrow))
+ftable(xtabs(~ RainTomorrow + WindDir3pm, data = train))
+ggplot(train, aes(WindDir3pm, ..count..)) + geom_bar(aes(fill = RainTomorrow),position = "dodge")+ theme(axis.text.x=element_text(angle=90,hjust=1))
+
+
+## Variables cuantitativa
+
+## WindSpeed9am
+
+var_WindSpeed9am = train$WindSpeed9am
+#Medidas de centralidad
+summary(var_WindSpeed9am)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_WindSpeed9am)
+
+length(var_WindSpeed9am)
+# Basic histogram
+ggplot(train, aes(x=WindSpeed9am)) + geom_histogram() + ggtitle('Histograma de WindSpeed9am')
+# Basic Density plot
+ggplot(train, aes(x = WindSpeed9am)) + geom_density() + ggtitle('Función de densidad de WindSpeed9am')
+# Basic box plot
+ggplot(train, aes(y=WindSpeed9am)) +  geom_boxplot() + ggtitle('Boxplot de WindSpeed9am')
+# Basic scatter plot
+ggplot(train, aes(x=WindSpeed9am, y=RainTomorrow)) + geom_point() 
+
+
+ggplot(train, aes(x = WindSpeed9am, fill = RainTomorrow)) + 
+  geom_dotplot( stackgroups = TRUE, binpositions="all")
+
+## WindSpeed3pm
+
+var_WindSpeed3pm = train$WindSpeed3pm
+#Medidas de centralidad
+summary(var_WindSpeed3pm)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_WindSpeed3pm)
+
+length(var_WindSpeed3pm)
+# Basic histogram
+ggplot(train, aes(x=WindSpeed3pm)) + geom_histogram() + ggtitle('Histograma de WindSpeed3pm')
+# Basic Density plot
+ggplot(train, aes(x = WindSpeed3pm)) + geom_density() + ggtitle('Función de densidad de WindSpeed3pm')
+# Basic box plot
+ggplot(train, aes(y=WindSpeed3pm)) +  geom_boxplot() + ggtitle('Boxplot de WindSpeed3pm')
+# Basic scatter plot
+ggplot(train, aes(x=WindSpeed3pm, y=RainTomorrow)) + geom_point() 
+
+## Humidity9am
+
+var_Humidity9am = train$Humidity9am
+#Medidas de centralidad
+summary(var_Humidity9am)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_Humidity9am)
+
+length(var_Humidity9am)
+# Basic histogram
+ggplot(train, aes(x=Humidity9am)) + geom_histogram() + ggtitle('Histograma de Humidity9am')
+# Basic Density plot
+ggplot(train, aes(x = Humidity9am)) + geom_density() + ggtitle('Función de densidad de Humidity9am')
+# Basic box plot
+ggplot(train, aes(y=Humidity9am)) +  geom_boxplot() + ggtitle('Boxplot de Humidity9am')
+# Basic scatter plot
+ggplot(train, aes(x=Humidity9am, y=RainTomorrow)) + geom_point() 
+
+## Humidity3pm
+
+var_Humidity3pm = train$Humidity3pm
+#Medidas de centralidad
+summary(var_Humidity3pm)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_Humidity3pm)
+
+length(var_Humidity3pm)
+# Basic histogram
+ggplot(train, aes(x=Humidity3pm)) + geom_histogram() + ggtitle('Histograma de Humidity3pm')
+# Basic Density plot
+ggplot(train, aes(x = Humidity3pm)) + geom_density() + ggtitle('Función de densidad de Humidity3pm')
+# Basic box plot
+ggplot(train, aes(y=Humidity3pm)) +  geom_boxplot() + ggtitle('Boxplot de Humidity3pm')
+# Basic scatter plot
+ggplot(train, aes(x=Humidity3pm, y=RainTomorrow)) + geom_point() 
+
+## Pressure9am
+
+var_Pressure9am = train$Pressure9am
+#Medidas de centralidad
+summary(var_Pressure9am)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_Pressure9am)
+
+length(var_Pressure9am)
+# Basic histogram
+ggplot(train, aes(x=Pressure9am)) + geom_histogram() + ggtitle('Histograma de Pressure9am')
+# Basic Density plot
+ggplot(train, aes(x = Pressure9am)) + geom_density() + ggtitle('Función de densidad de Pressure9am')
+# Basic box plot
+ggplot(train, aes(y=Pressure9am)) +  geom_boxplot() + ggtitle('Boxplot de Pressure9am')
+# Basic scatter plot
+ggplot(train, aes(x=Pressure9am, y=RainTomorrow)) + geom_point() 
+
+## Pressure3pm
+
+var_Pressure3pm = train$Pressure3pm
+#Medidas de centralidad
+summary(var_Pressure3pm)
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
+#Devuelve NAs porque hay NAs en la columna.
+medidas_dispersion(var_Pressure3pm)
+
+length(var_Pressure3pm)
+# Basic histogram
+ggplot(train, aes(x=Pressure3pm)) + geom_histogram() + ggtitle('Histograma de Pressure3pm')
+# Basic Density plot
+ggplot(train, aes(x = Pressure3pm)) + geom_density() + ggtitle('Función de densidad de Pressure3pm')
+# Basic box plot
+ggplot(train, aes(y=Pressure3pm)) +  geom_boxplot() + ggtitle('Boxplot de Pressure3pm')
+# Basic scatter plot
+ggplot(train, aes(x=Pressure3pm, y=RainTomorrow)) + geom_point() 
+```
+</center>
+
+## EDA
+
+En esta parte haremos un analisis de las variables en comparacion con otras
+
+<center>
+```{r EDA}
+# EDA multivariante
+# Diagramas de barras
+# Histogramas separando variables
+train %>% 
+  ggplot(aes(x = MinTemp, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = MaxTemp, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = Cloud9am, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = Cloud3pm, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = Temp9am, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = Temp3pm, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+# Densidades separando variables
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = MinTemp, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = MaxTemp, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Rainfall, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Cloud9am, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Cloud3pm, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Temp9am, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Temp3pm, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades MinTemp en función de RainTomorrow')
+
+# Boxplot separando variables
+ggplot(train, aes(x = RainTomorrow, y = MinTemp, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+ggplot(train, aes(x = RainTomorrow, y = MaxTemp, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+ggplot(train, aes(x = RainTomorrow, y = Rainfall, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+ggplot(train, aes(x = RainTomorrow, y = Cloud9am, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+ggplot(train, aes(x = RainTomorrow, y = Cloud3pm, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+ggplot(train, aes(x = RainTomorrow, y = Temp9am, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+ggplot(train, aes(x = RainTomorrow, y = Temp3pm, fill = RainTomorrow)) + geom_boxplot() +  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +  ggtitle(' ')
+
+# Correlaciones
+train %>% select(2, 4:7) %>%
+  na.omit() %>%
+  ggpairs(columns = 2:5, ggplot2::aes(colour=Season))
+
+#Correlación variables numéricas
+train_num = train %>% select_if(is.numeric) %>% na.omit()
+train_matrix = cor(train_num)
+corrplot(train_matrix,is.corr = FALSE, method='circle', order = "hclust", addrect = 2, tl.cex=0.8, tl.col = "black")
+
+#Scatterplot de las variables más correladas:
+#MinTemp, Temp9am
+ggplot(train, aes(x=MinTemp, y=Temp9am)) + geom_point()
+#MaxTemp, Temp3pm
+ggplot(train, aes(x=MaxTemp, y=Temp3pm)) + geom_point()
+#MaxTemp, Temp3pm
+ggplot(train, aes(x=Pressure3pm, y=Pressure9am)) + geom_point()
+
+
+# EDA multivariante
+# Diagramas de barras
+# Histogramas separando variables
+train %>% 
+  ggplot(aes(x = Evaporation, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = Sunshine, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = WindGustSpeed, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+train %>% 
+  ggplot(aes(x = RISK_MM, fill = RainTomorrow)) + 
+  geom_histogram() +
+  scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4")) +
+  facet_wrap(~ RainTomorrow) 
+
+# Densidades separando variables
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Evaporation, fill = RainTomorrow)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades Evaporation en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Sunshine, fill = RainTomorrow)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades Sunshine en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = WindGustSpeed, fill = RainTomorrow)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades WindGustSpeed en función de RainTomorrow')
+
+train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = RISK_MM, fill = RainTomorrow)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades RISK_MM en función de RainTomorrow')
+
+
+#Scatterplot de las variables más correladas:
+# check relations
+trainNAO <- na.omit(train)
+numeric <- map_lgl(trainNAO, is.numeric)
+
+correlations <- cor(trainNAO[,numeric])
+corrplot(correlations, method = "circle")
+
+
+#Evaporation, MinTemp
+ggplot(train, aes(x=Evaporation, y=MinTemp)) + geom_point() + geom_smooth(method = "lm")
+#Evaporation, MaxTemp
+ggplot(train, aes(x=Evaporation, y=MaxTemp)) + geom_point() + geom_smooth(method = "lm")
+#Evaporation, Temp9am
+ggplot(train, aes(x=Evaporation, y=Temp9am)) + geom_point() + geom_smooth(method = "lm")
+#Evaporation, Temp3pm
+ggplot(train, aes(x=Evaporation, y=Temp3pm)) + geom_point() + geom_smooth(method = "lm")
+#Sunshine, MaxTemp
+ggplot(train, aes(x=Sunshine, y=MaxTemp)) + geom_point() + geom_smooth(method = "lm")
+#Sunshine, Temp3pm
+ggplot(train, aes(x=Sunshine, y=Temp3pm)) + geom_point() + geom_smooth(method = "lm") 
+#WindGustSpeed, WindSeep9am
+ggplot(train, aes(x=WindGustSpeed, y=WindSpeed9am)) + geom_point()
+#WindGustSpeed, WindSeep3pm
+ggplot(train, aes(x=WindGustSpeed, y=WindSpeed3pm)) + geom_point()
+
+
+
+
+#Windir & winspeed
+
+train %>%
+  group_by(WindDir9am) %>%
+  summarize(avg_WindSpeed9am = mean(WindSpeed9am)) %>%
+  ggplot(aes(x = avg_WindSpeed9am, y = reorder(WindDir9am, avg_WindSpeed9am))) + 
+  geom_point(size = 5)
+
+train %>%
+  group_by(WindDir3pm) %>%
+  summarize(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
+  ggplot(aes(x = avg_WindSpeed3pm, y = reorder(WindDir3pm, avg_WindSpeed3pm))) + 
+  geom_point(size = 5)
+
+qplot(log10(WindSpeed9am), log10(WindSpeed3pm), data = train)
+
+qplot(log10(WindSpeed9am), log10(WindSpeed3pm), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre velocidades de viento a diferentes horas')
+
+qplot(WindSpeed9am, WindSpeed3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre velocidades de viento a diferentes horas y lluvia al dia siguiente')
+
+train %>%
+  group_by(WindDir9am, RainTomorrow) %>% 
+  summarise(avg_WindSpeed9am = mean(WindSpeed9am)) %>%
+  ggplot(aes(x=WindDir9am, y=avg_WindSpeed9am, fill=RainTomorrow)) + geom_bar(stat = "identity",
+                                                                              position = "dodge") + 
+  ggtitle("relacion entre direccion de viento y velocidad con la lluvia del dia siguiente")
+
+train %>%
+  group_by(WindDir3pm, RainTomorrow) %>% 
+  summarise(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
+  ggplot(aes(x=WindDir3pm, y=avg_WindSpeed3pm, fill=RainTomorrow)) + geom_bar(stat = "identity",
+                                                                              position = "dodge") + 
+  ggtitle("relacion entre direccion de viento y velocidad con la lluvia del dia siguiente")
+
+#Humidity 
+
+qplot(log10(Humidity9am), log10(Humidity3pm), data = train)
+
+qplot(log10(Humidity9am), log10(Humidity3pm), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre humedad a diferentes horas')
+
+qplot(Humidity9am, Humidity3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre humedad a diferentes horas y lluvia al dia siguiente')
+
+
+#Pressure
+
+qplot(log10(Pressure9am), log10(Pressure3pm), data = train)
+
+qplot(log10(Pressure9am), log10(Pressure3pm), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure9am, Humidity3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+#humedad y presion
+
+qplot(log10(Pressure9am), log10(Humidity9am), data = train)
+
+qplot(log10(Pressure9am), log10(Humidity9am), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure9am, Humidity9am, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+qplot(log10(Pressure3pm), log10(Humidity3pm), data = train)
+
+qplot(log10(Pressure3pm), log10(Humidity3pm), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure3pm, Humidity3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+#presion y Winspeed
+
+qplot(log10(Pressure9am), log10(WindSpeed9am), data = train)
+
+qplot(log10(Pressure9am), log10(WindSpeed9am), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure9am, WindSpeed9am, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+qplot(log10(Pressure3pm), log10(WindSpeed3pm), data = train)
+
+qplot(log10(Pressure3pm), log10(WindSpeed3pm), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Pressure3pm, WindSpeed3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+#humedad y Winspeed
+
+qplot(log10(Humidity9am), log10(WindSpeed9am), data = train)
+
+qplot(log10(Humidity9am), log10(WindSpeed9am), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Humidity9am, WindSpeed9am, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+qplot(log10(Humidity3pm), log10(WindSpeed3pm), data = train)
+
+qplot(log10(Humidity3pm), log10(WindSpeed3pm), data = train) +
+  geom_smooth(method = "lm") +
+  ggtitle('Relación entre presiones a diferentes horas')
+
+qplot(Humidity3pm, WindSpeed3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() +
+  ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
+
+
+
+weatherAUSCorr <- train %>% select(Temp9am, Temp3pm, Pressure9am,Pressure3pm,MinTemp,MaxTemp) %>% na.omit()
+
+
+numeric <- map_lgl(weatherAUSCorr, is.numeric)
+
+correlations <- cor(weatherAUSCorr[,numeric])
+
+diag(correlations) <- 0
+
+high <- apply(abs(correlations) >= 0.8, 2, any)
+
+corrplot(correlations[high, high], method = "number")
+```
+
+## Imputacion de datos faltantes
+
+Cuando hemos terminado el analisis de las variables y hemos estudiado la correlacion que hay entre ellas podemos imputar los datos faltantes utilizando el resto de variables que tenemos. aprovechandonos asi de las variables que mas relación tienen entre ellas.
+
+Detección, tratamiento e imputación de datos faltantes
+Valores Faltantes
+Visualización de valores faltantes
+Variables con más valores faltantes: Sunshine, Evaporation, Cloud3pm, Cloud9am, Pressure3pm, Pressure9am
+```{r imputacion}
+#Detección, tratamiento e imputación de datos faltantes
+#Valores Faltantes
+#Visualización de valores faltantes
+#Variables con más valores faltantes: Sunshine, Evaporation, Cloud3pm, Cloud9am, Pressure3pm, Pressure9am
+
+
+var_Temp = train %>% select(MinTemp, MaxTemp, Location, Rainfall, Temp9am, Temp3pm)
+var_cloud = train %>% select(Cloud9am, Cloud3pm)
+
+aggr_plot <- aggr(var_Temp, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+                  labels=names(var_Temp), cex.axis=.7, gap=2, 
+                  ylab=c("Histogram of missing data","Pattern"))
+aggr_plot
+
+aggr_plot <- aggr(var_cloud, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE,
+                  labels=names(var_cloud), cex.axis=.7, gap=2, 
+                  ylab=c("Histogram of missing data","Pattern"))
+
+```
+Variables Temp9am & Temp3pm: método: imputación simple: KNN
+```{r imputacion1}
+#Variables Temp9am & Temp3pm: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Temp9am, Temp3pm) %>% marginplot()
+```
+Posible imputación simple mediante un algoritmo de clustering k-NN (con la función VIM:kNN)
+Parece que tiene sentido:
+```{r imputacion11}
+#Posible imputación simple mediante un algoritmo de clustering k-NN (con la función VIM:kNN)
+#Parece que tiene sentido:
+train %>% select(Temp9am, Temp3pm) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train, variable=c("Temp9am","Temp3pm"))
+aggr(train_imputed%>% select(Temp9am_imp, Temp3pm_imp, Temp9am, Temp3pm), delimiter="_imp", numbers=TRUE, prop=c(TRUE,FALSE))
+```
+###Comprobaciones:
+```{r imputacion2}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Temp9am, na.rm = T), col=2, main="Temp9am")
+lines(density(train_imputed$Temp9am), col=3)
+plot(density(train$Temp3pm, na.rm = T), col=2, main="Temp3pm")
+lines(density(train_imputed$Temp3pm), col=3)
+```
+Variables MinTemp & MaxTemp: método: imputación simple: KNN
+```{r imputacion22}
+#Variables MinTemp & MaxTemp: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(MinTemp, MaxTemp) %>% marginplot()
+#Parece que tiene sentido:
+train_imputed %>% select(MinTemp, MaxTemp) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train_imputed, variable=c("MaxTemp","MinTemp"))
+aggr(train_imputed%>% select(MinTemp, MaxTemp, MaxTemp_imp, MinTemp_imp), delimiter="_imp", numbers=TRUE, prop=c(TRUE,FALSE))
+```
+###Comprobaciones:
+```{r imputacion5}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$MaxTemp,na.rm = T),col=2,main="MaxTemp")
+lines(density(train_imputed$MaxTemp),col=3)
+plot(density(train$MinTemp,na.rm = T),col=2,main="MinTemp")
+lines(density(train_imputed$MinTemp),col=3)
+```
+Variables Humidity9am & Rainfall: método: imputación simple: KNN
+```{r imputacion3}
+#Variables Humidity9am & Rainfall: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Humidity9am, Rainfall) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(Humidity9am, Rainfall) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train_imputed, variable=c("Humidity9am","Rainfall"))
+aggr(train_imputed%>% select(Humidity9am, Rainfall, Humidity9am_imp, Rainfall_imp), delimiter="_imp", numbers=TRUE, prop=c(TRUE,FALSE))
+```
+###Comprobaciones:
+```{r imputacion4}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Humidity9am,na.rm = T),col=2,main="Humidity9am")
+lines(density(train_imputed$Humidity9am),col=3)
+plot(density(train$Rainfall,na.rm = T),col=2,main="Rainfall")
+lines(density(train_imputed$Rainfall),col=3)
+
+# Checkea numero de NA
+(cols_withNa <- apply(train_imputed, 2, function(x) sum(is.na(x))))
+```
+Aplicamos el mismo método para los nules de test. Para ello hay que imputarlos junto con el dataframe de train.
+```{r imputacion7}
+#Aplicamos el mismo método para los nules de test. Para ello hay que imputarlos junto con el dataframe de train.
+train_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp")] <- list(NULL)
+
+imputacion_knn_test<-function(train_imputed, df_test){
+  train_imputed["dataset"] <- 'train'
+  test["dataset"] <- 'test'
+  dataset_knn = rbind(train_imputed, test) 
+  dataset_knn_imputed <- kNN(dataset_knn, variable=c("Temp9am","Temp3pm"))
+  dataset_knn_imputed <- kNN(dataset_knn, variable=c("MaxTemp","MinTemp"))
+  dataset_knn_imputed <- kNN(dataset_knn, variable=c("Humidity9am","Rainfall"))
+  train_imputed = subset(dataset_knn_imputed, dataset == 'train')
+  test_imputed = subset(dataset_knn_imputed, dataset == 'test')
+  test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp")] <- list(NULL)
+  return (test_imputed) }
+
+test_imputed = imputacion_knn_test(train_imputed, df_test)
+```
+Transformaciones de variables cuantitativas
+La única que no parece seguir una distribución normal es la variable RainFall
+No se le puede aplicar logaritmos porque hay nulos.
+```{r imputacion9}
+#Transformaciones de variables cuantitativas
+#La única que no parece seguir una distribución normal es la variable RainFall
+#No se le puede aplicar logaritmos porque hay nulos.
+
+p1 <- train_imputed %>% select(Rainfall, Season) %>%
+  na.omit() %>%
+  ggplot(aes(x=Rainfall, colour=Season)) +
+  geom_density()
+
+p2 <- train_imputed %>% mutate(inv_Rainfall = 1/ (train_imputed$Rainfall+ 1)) %>%
+  select(Season, inv_Rainfall) %>%
+  na.omit() %>%
+  ggplot(aes(x=inv_Rainfall, colour=Season)) +
+  geom_density()
+
+p3 <- train_imputed %>% mutate(log10_Rainfall = log10(Rainfall + 0.01)) %>%  #+ 1.01
+  select(Season, log10_Rainfall) %>%
+  na.omit() %>%
+  ggplot(aes(x=log10_Rainfall, colour=Season)) +
+  geom_density()
+
+hist(train_imputed$Rainfall)
+hist(log10(train_imputed$Rainfall))
+hist(log10(train_imputed$Rainfall) + 1)
+#Sigue sin quedar una distribución normal...
+grid.arrange(p1, p2, p3, nrow = 1)
+
+train_imputed$LogRainfall<- (log(train_imputed$Rainfall + 0.011)) #log(train_imputed$Rainfall+1.01)
+
+train_imputed %>% select(Season, Rainfall) %>%
+  na.omit() %>%
+  symbox(~ Rainfall, data = .)
+
+qqnorm(train_imputed$LogRainfall, ylab="LogRainfall")
+qqline(train_imputed$LogRainfall, col="red")
+
+```
+Resto de variables: siguen distribución normal
+```{r imputacion8}
+#Resto de variables: siguen distribución normal
+qqnorm(train_imputed$MinTemp, ylab="MinTemp")
+qqline(train_imputed$MinTemp, col="red")
+
+qqnorm(train_imputed$MaxTemp, ylab="MaxTemp")
+qqline(train_imputed$MaxTemp, col="red")
+
+qqnorm(train_imputed$Temp3pm, ylab="Temp3pm")
+qqline(train_imputed$Temp3pm, col="red")
+
+qqnorm(train_imputed$Temp9am, ylab="Temp9am")
+qqline(train_imputed$Temp9am, col="red")
+
+
+
+
+# Evaporation
+train_imputed$Evaporation[which(is.na(train_imputed$Evaporation))] <- mean(train_imputed$Evaporation,na.rm = TRUE)
+test_imputed$Evaporation[which(is.na(test_imputed$Evaporation))] <- mean(test_imputed$Evaporation,na.rm = TRUE)
+
+#Imputacion WindGustSpeed
+a <- data.frame(WindSpeed9am= train_imputed$WindSpeed9am, WindSpeed3pm= train_imputed$WindSpeed3pm)
+means <- rowMeans(a, na.rm=TRUE)
+train_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- means
+
+a <- data.frame(WindSpeed9am= test_imputed$WindSpeed9am, WindSpeed3pm= test_imputed$WindSpeed3pm)
+means <- rowMeans(a, na.rm=TRUE)
+test_imputed$WindGustSpeed[which(is.na(test_imputed$WindGustSpeed))] <- means
+
+# Imputacion RainToday y RainTomorrow
+rain_today <- train_imputed$RainToday
+rain_today_test <- test_imputed$RainToday
+rain_today[is.na(rain_today)] <- "No"
+rain_today_test[is.na(rain_today_test)] <- "No"
+
+rain_today <- ifelse(rain_today == "Yes", 1, 0)
+rain_today_test <- ifelse(rain_today_test == "Yes", 1, 0)
+train_imputed$RainToday = as.numeric(rain_today)
+test_imputed$RainToday = as.numeric(rain_today_test)
+
+rain_tomorrow <- train_imputed$RainTomorrow
+rain_tomorrow_test <- test_imputed$RainTomorrow
+rain_tomorrow <- ifelse(rain_tomorrow == "Yes", 1, 0)
+rain_tomorrow_test <- ifelse(rain_tomorrow_test == "Yes", 1, 0)
+train_imputed$RainTomorrow = as.numeric(rain_tomorrow)
+test_imputed$RainTomorrow = as.numeric(rain_tomorrow_test)
+
+dim(test_imputed)
+dim(train_imputed)
+
+# check NA
+train_imputed %>%
+  summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
+  t()
+```
+
+
+## Modelo
+
+El modelo utilizado es una regresion lineal, sacamos los valores de la recta para cada variable mediante lasso
+
+###Estandarización:
+```{r modelo}
+
+#Estandarización
+numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
+                  "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
+                  "Pressure3pm" , "Temp9am", "Temp3pm", "RISK_MM")
+
+preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
+train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
+
+#Aplicamos la estandarización con las medias y varianzas de train
+test_imputed[numeric_vars] <- predict(preprocessParams, test_imputed[numeric_vars])
+
+#Procesado de variables cualitativas: creación variables dummies
+train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
+test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
+
+train_imputed$Location <- NULL
+train_imputed$Season <- NULL
+train_imputed$Date <- NULL
+train_imputed$WindGustDir <- NULL
+
+test_imputed$Location <- NULL
+test_imputed$Season <- NULL
+test_imputed$Date <- NULL
+test_imputed$WindGustDir <- NULL
+
+
+#Selección de variables 
+
+train_imputed_sinNA = na.omit(train_imputed)
+x_train = train_imputed_sinNA[, !names(train_imputed_sinNA) %in% c("RainTomorrow")] 
+
+y_train = train_imputed_sinNA$RainTomorrow
+
+test_imputed_sinNA = na.omit(test_imputed)
+x_test = test_imputed_sinNA[, !names(test_imputed_sinNA) %in% c("RainTomorrow")] 
+y_test = test_imputed_sinNA$RainTomorrow
+
+dim(test_imputed_sinNA)
+dim(train_imputed_sinNA)
+
+#Primero vemos Lasso
+library(glmnet)
+x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
+
+lambda_seq <- 10^seq(2, -2, by = -.1)
+cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
+plot(cv.out)
+# identifying best lamda
+best_lam <- cv.out$lambda.min
+lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
+
+c<-coef(lasso_best,s=best_lam,exact=TRUE)
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
+variables
+new_train = train_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
+                                           "Cloud3pm", "RainToday", "RainTomorrow")
+new_test = test_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
+                                         "Cloud3pm", "RainToday", "RainTomorrow")
+
+
+#Modelo
+#Entrenamiento
+glm_model_train = glm(RainTomorrow~ ., data=new_train, family= binomial)
+
+#Test
+glm_test = predict(glm_model_train, newdata = new_test, type = "response")
+
+#Evaluación modelo
+
+#Summary
+summary(glm_model_train)
+#Tabla de ganancia
+logistic_gains_table <- blr_gains_table(glm_model_train, data = new_train)
+#Curva ROC
+blr_roc_curve(logistic_gains_table)
+#Matriz de confusión
+
+umbral_dec = 0.46
+glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
+glm_test <- factor(glm_test, levels = c(0,1))
+tabla_conf <- table(glm_test, new_test$RainTomorrow)
+caret::confusionMatrix(tabla_conf, positive = '1')
+
+
+residuos<-rstandard(glm_model_train) 
+# residuos estándares del modelo ajustado (completo) 
+win.graph() 
+# abre una ventana para los gráficos 
+par(mfrow=c(1,3)) 
+# divide la ventana en una fila y tres columnas 
+hist(residuos, breaks = 5) 
+# histograma de los residuos estandarizados 
+boxplot(residuos) 
+# diagrama de cajas de los residuos estandarizados 
+qqnorm(residuos) 
+# gráfico de cuantiles de los residuos estandarizados 
+qqline(residuos)
+
+
+```
