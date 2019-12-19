@@ -296,20 +296,20 @@ train %>% select(Humidity3pm, Humidity9am) %>% marginplot()
 
 #Imputación de valores faltantes
 #prueba función
-imputacion_knn_train<-function(df, feature1, feature2) {
-    par(mfrow=c(1,1))
-    df %>% select(feature1, feature2) %>% marginplot()
-    df %>% select(feature1, feature2) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
-    df_imputed <- kNN(train, variable=c(as.character(feature1), as.character(feature2)))
-    aggr(df_imputed%>% select(Temp9am_imp, Temp3pm_imp, feature1, feature2), delimiter="_imp", numbers=TRUE, prop=c(TRUE,FALSE))
-    par(mfrow=c(1,2))
-    plot(density(df$feature2, na.rm = T), col=2, main= as.character(feature2))
-    lines(density(df_imputed$feature2), col=3)
-    plot(density(df$feature1, na.rm = T), col=2, main=as.character(feature1))
-    lines(density(df_imputed$feature1), col=3)
-  return (df_imputed)}
+#imputacion_knn_train<-function(df, feature1, feature2) {
+#    par(mfrow=c(1,1))
+#    df %>% select(feature1, feature2) %>% marginplot()
+#    df %>% select(feature1, feature2) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+#    df_imputed <- kNN(train, variable=c(as.character(feature1), as.character(feature2)))
+#    aggr(df_imputed%>% select(Temp9am_imp, Temp3pm_imp, feature1, feature2), delimiter="_imp", numbers=TRUE, prop=c(TRUE,FALSE))
+#    par(mfrow=c(1,2))
+#    plot(density(df$feature2, na.rm = T), col=2, main= as.character(feature2))
+#    lines(density(df_imputed$feature2), col=3)
+#    plot(density(df$feature1, na.rm = T), col=2, main=as.character(feature1))
+#    lines(density(df_imputed$feature1), col=3)
+#    return (df_imputed)}
 
-train_imputed = imputacion_knn(train, Temp9am, Temp3pm)
+#train_imputed = imputacion_knn(train, Temp9am, Temp3pm)
 
 #Variables Temp9am & Temp3pm: método: imputación simple: KNN
 par(mfrow=c(1,1))
@@ -493,11 +493,28 @@ test_imputed$Season <- NULL
 test_imputed$Date <- NULL
 
 #Datasets preparados:
-
-
+x_train = train_imputed[, !names(train_imputed) %in% c("RainTomorrow")] 
+y_train = train_imputed$RainTomorrow
 
 #Selección de variables 
 
+train_imputed_sinNA = na.omit(train_imputed)
+
+#Primero vemos Lasso
+library(glmnet)
+
+x = model.matrix(train_imputed ~ ., RainTomorrow)[,-1]
+
+lambda_seq <- 10^seq(2, -2, by = -.1)
+cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
+plot(cv_output)
+# identifying best lamda
+best_lam <- cv_output$lambda.min
+lasso_best <- glmnet1(x_train, y_train, alpha = 1, lambda = best_lam)
+
+c<-coef(glmnet1,s=best_lam,exact=TRUE)
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
 
 #Modelo
 
