@@ -35,7 +35,9 @@ dim(test)
 dim(validation)
 
 
-
+#medidas de dispersión
+medidas_dispersion<-function(x) {
+  return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
 
 
 

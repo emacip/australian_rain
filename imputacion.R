@@ -132,3 +132,30 @@ qqline(train_imputed$Temp3pm, col="red")
 qqnorm(train_imputed$Temp9am, ylab="Temp9am")
 qqline(train_imputed$Temp9am, col="red")
 
+
+
+
+# Evaporation
+train$Evaporation[which(is.na(train$Evaporation))] <- mean(train$Evaporation,na.rm = TRUE)
+
+#Imputacion WindGustSpeed
+a <- data.frame(WindSpeed9am= train$WindSpeed9am, WindSpeed3pm= train$WindSpeed3pm)
+means <- rowMeans(a, na.rm=TRUE)
+train$WindGustSpeed[which(is.na(train$WindGustSpeed))] <- means
+
+# Imputacion RainToday y RainTomorrow
+rain_today <- train$RainToday
+rain_today[is.na(rain_today)] <- "No"
+
+rain_today <- ifelse(rain_today == "Yes", 1, 0)
+train$RainToday = as.numeric(rain_today)
+
+rain_tomorrow <- train$RainTomorrow
+rain_tomorrow <- ifelse(rain_tomorrow == "Yes", 1, 0)
+train$RainTomorrow = as.numeric(rain_tomorrow)
+
+
+# check NA
+train %>%
+  summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
+  t()
