@@ -78,7 +78,7 @@ imputacion_knn_test<-function(train_imputed, df_test){
   dataset_knn_imputed <- kNN(dataset_knn, variable=c("Humidity9am","Rainfall"))
   train_imputed = subset(dataset_knn_imputed, dataset == 'train')
   test_imputed = subset(dataset_knn_imputed, dataset == 'test')
-  test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp")] <- list(NULL)
+  test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp", "dataset")] <- list(NULL)
   return (test_imputed) }
 
 test_imputed = imputacion_knn_test(train_imputed, df_test)
@@ -110,7 +110,8 @@ hist(log10(train_imputed$Rainfall) + 1)
 #Sigue sin quedar una distribución normal...
 grid.arrange(p1, p2, p3, nrow = 1)
 
-train_imputed$LogRainfall<- (log(train_imputed$Rainfall + 0.011)) #log(train_imputed$Rainfall+1.01)
+train_imputed$LogRainfall<- (log(train_imputed$Rainfall + 1)) 
+test_imputed$LogRainfall<- (log(test_imputed$Rainfall + 1))
 
 train_imputed %>% select(Season, Rainfall) %>%
   na.omit() %>%
@@ -134,28 +135,42 @@ qqline(train_imputed$Temp9am, col="red")
 
 
 
-
 # Evaporation
-train$Evaporation[which(is.na(train$Evaporation))] <- mean(train$Evaporation,na.rm = TRUE)
+train_imputed$Evaporation[which(is.na(train_imputed$Evaporation))] <- mean(train_imputed$Evaporation,na.rm = TRUE)
+test_imputed$Evaporation[which(is.na(test_imputed$Evaporation))] <- mean(test_imputed$Evaporation,na.rm = TRUE)
 
 #Imputacion WindGustSpeed
-a <- data.frame(WindSpeed9am= train$WindSpeed9am, WindSpeed3pm= train$WindSpeed3pm)
+a <- data.frame(WindSpeed9am= train_imputed$WindSpeed9am, WindSpeed3pm= train_imputed$WindSpeed3pm)
 means <- rowMeans(a, na.rm=TRUE)
-train$WindGustSpeed[which(is.na(train$WindGustSpeed))] <- means
+train_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- means
+
+a <- data.frame(WindSpeed9am= test_imputed$WindSpeed9am, WindSpeed3pm= test_imputed$WindSpeed3pm)
+means <- rowMeans(a, na.rm=TRUE)
+test_imputed$WindGustSpeed[which(is.na(test_imputed$WindGustSpeed))] <- means
 
 # Imputacion RainToday y RainTomorrow
-rain_today <- train$RainToday
+rain_today <- train_imputed$RainToday
+rain_today_test <- test_imputed$RainToday
 rain_today[is.na(rain_today)] <- "No"
+rain_today_test[is.na(rain_today_test)] <- "No"
 
 rain_today <- ifelse(rain_today == "Yes", 1, 0)
-train$RainToday = as.numeric(rain_today)
+rain_today_test <- ifelse(rain_today_test == "Yes", 1, 0)
+train_imputed$RainToday = as.numeric(rain_today)
+test_imputed$RainToday = as.numeric(rain_today_test)
 
-rain_tomorrow <- train$RainTomorrow
+rain_tomorrow <- train_imputed$RainTomorrow
+rain_tomorrow_test <- test_imputed$RainTomorrow
 rain_tomorrow <- ifelse(rain_tomorrow == "Yes", 1, 0)
-train$RainTomorrow = as.numeric(rain_tomorrow)
+rain_tomorrow_test <- ifelse(rain_tomorrow_test == "Yes", 1, 0)
+train_imputed$RainTomorrow = as.numeric(rain_tomorrow)
+test_imputed$RainTomorrow = as.numeric(rain_tomorrow_test)
 
+dim(test_imputed)
+dim(train_imputed)
 
 # check NA
-train %>%
+train_imputed %>%
   summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
   t()
+

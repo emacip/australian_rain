@@ -1,5 +1,4 @@
-train_imputed$LogRainfall<- (log(train_imputed$Rainfall + 1)) 
-test_imputed$LogRainfall<- (log(test_imputed$Rainfall + 1))
+
 
 #Estandarización
 numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
@@ -19,29 +18,23 @@ test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season'
 train_imputed$Location <- NULL
 train_imputed$Season <- NULL
 train_imputed$Date <- NULL
+train_imputed$WindGustDir <- NULL
 
 test_imputed$Location <- NULL
 test_imputed$Season <- NULL
 test_imputed$Date <- NULL
+test_imputed$WindGustDir <- NULL
 
-#Datasets preparados:
-x_train = train_imputed[, !names(train_imputed) %in% c("RainTomorrow")] 
-y_train = train_imputed$RainTomorrow
 
 #Selección de variables 
 
 train_imputed_sinNA = na.omit(train_imputed)
 x_train = train_imputed_sinNA[, !names(train_imputed_sinNA) %in% c("RainTomorrow")] 
-train_imputed_sinNA$RainTomorrow <- ifelse(train_imputed_sinNA$RainTomorrow == "Yes", 1, 0)
-train_imputed_sinNA$RainToday <- ifelse(train_imputed_sinNA$RainToday== "Yes", 1, 0)
-train_imputed_sinNA$RainTomorrow = as.numeric(train_imputed_sinNA$RainTomorrow)
+
 y_train = train_imputed_sinNA$RainTomorrow
 
 test_imputed_sinNA = na.omit(test_imputed)
 x_test = test_imputed_sinNA[, !names(test_imputed_sinNA) %in% c("RainTomorrow")] 
-test_imputed_sinNA$RainTomorrow <- ifelse(test_imputed_sinNA$RainTomorrow == "Yes", 1, 0)
-test_imputed_sinNA$RainToday <- ifelse(test_imputed_sinNA$RainToday== "Yes", 1, 0)
-test_imputed_sinNA$RainTomorrow = as.numeric(test_imputed_sinNA$RainTomorrow)
 y_test = test_imputed_sinNA$RainTomorrow
 
 dim(test_imputed_sinNA)
@@ -62,22 +55,47 @@ c<-coef(lasso_best,s=best_lam,exact=TRUE)
 inds<-which(c!=0)
 variables<-row.names(c)[inds]
 variables
+new_train = train_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
+                                           "Cloud3pm", "RainToday", "RainTomorrow")
+new_test = test_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
+                                         "Cloud3pm", "RainToday", "RainTomorrow")
+
+
 #Modelo
 #Entrenamiento
-glm_model_train = glm(RainTomorrow~ ., data=train_imputed_sinNA, family= binomial)
+glm_model_train = glm(RainTomorrow~ ., data=new_train, family= binomial)
+
 #Test
-glm_test = predict(glm_model_train, newdata = test_imputed_sinNA, type = "response")
+glm_test = predict(glm_model_train, newdata = new_test, type = "response")
 
 #Evaluación modelo
-library(blorr)
-library(magrittr)
+
 #Summary
 summary(glm_model_train)
 #Tabla de ganancia
-logistic_gains_table <- blr_gains_table(glm_model_train, data = train_imputed_sinNA)
+logistic_gains_table <- blr_gains_table(glm_model_train, data = new_train)
 #Curva ROC
 blr_roc_curve(logistic_gains_table)
 #Matriz de confusión
-tabla_conf <- table(glm_test, test_imputed_sinNA$RainTomorrow)
+
+umbral_dec = 0.46
+glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
+glm_test <- factor(glm_test, levels = c(0,1))
+tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
+
+
+residuos<-rstandard(glm_model_train) 
+# residuos estándares del modelo ajustado (completo) 
+win.graph() 
+# abre una ventana para los gráficos 
+par(mfrow=c(1,3)) 
+# divide la ventana en una fila y tres columnas 
+hist(residuos) 
+# histograma de los residuos estandarizados 
+boxplot(residuos) 
+# diagrama de cajas de los residuos estandarizados 
+qqnorm(residuos) 
+# gráfico de cuantiles de los residuos estandarizados 
+qqline(residuos)
 

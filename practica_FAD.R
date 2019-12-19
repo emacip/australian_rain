@@ -13,7 +13,8 @@ library(kableExtra)
 library(car)
 library(fastDummies)
 library(caret)
-weatherAUS <- read.csv("~/Escritorio/MASTER/FUNDAMENTOS DE ANÁLISIS DE DATOS/practica_FAD/australian_rain/weatherAUS_2.csv")
+weatherAUS <- weatherAUS_2
+  #read.csv("~/Escritorio/MASTER/FUNDAMENTOS DE ANÁLISIS DE DATOS/practica_FAD/australian_rain/weatherAUS_2.csv")
 dim(weatherAUS)
 
 #Dividir Train / Test
@@ -22,7 +23,7 @@ set.seed(123)
 train_ind <- sample(seq_len(nrow(weatherAUS)), size = 0.80 * nrow(weatherAUS))
 train <- weatherAUS[train_ind, ]
 temp <- weatherAUS[-train_ind, ]
-test_val_ind<- sample(seq_len(nrow(temp)), size = 0.90 * nrow(temp))
+test_val_ind<- sample(seq_len(nrow(temp)), size = 0.50 * nrow(temp))
 test <- temp[test_val_ind, ]
 validation <- temp[-test_val_ind, ]
 dim(train)
