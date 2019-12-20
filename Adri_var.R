@@ -21,9 +21,11 @@ weatherAUS %>% select(Sunshine,Humidity9am,Humidity3pm,Pressure9am,Pressure3pm,R
   na.omit() %>%
   ggpairs(columns = 1:6, ggplot2::aes(colour=RainTomorrow))
 
-weatherAUS %>% select(Evaporation,WindDir9am,WindDir3pm,WindSpeed9am,WindSpeed3pm,RainTomorrow) %>%
+
+##WindDir9am,WindDir3pm
+weatherAUS %>% select(Evaporation,WindSpeed9am,WindSpeed3pm,RainTomorrow) %>%
   na.omit() %>%
-  ggpairs(columns = 1:6, ggplot2::aes(colour=RainTomorrow))
+  ggpairs(columns = 1:4, ggplot2::aes(colour=RainTomorrow))
 
 weatherAUS %>% select(MinTemp,MaxTemp,Rainfall,WindGustSpeed,RainTomorrow) %>%
   na.omit() %>%
@@ -268,7 +270,7 @@ qplot(log10(Pressure9am), log10(Pressure3pm), data = weatherAUS) +
   geom_smooth(method = "lm") +
   ggtitle('Relación entre presiones a diferentes horas')
 
-qplot(Pressure9am, Humidity3pm, data = weatherAUS, colour = factor(RainTomorrow)) +
+qplot(Pressure9am, Pressure3pm, data = weatherAUS, colour = factor(RainToday)) +
   geom_smooth() +
   ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
 
@@ -299,7 +301,7 @@ qplot(Pressure3pm, Humidity3pm, data = weatherAUS, colour = factor(RainTomorrow)
 
 #presion y Winspeed
 
-qplot(log10(Pressure9am), log10(WindSpeed9am), data = weatherAUS)
+qplot(Pressure9am, WindSpeed9am, data = weatherAUS)
 
 qplot(log10(Pressure9am), log10(WindSpeed9am), data = weatherAUS) +
   geom_smooth(method = "lm") +
@@ -343,5 +345,69 @@ qplot(Humidity3pm, WindSpeed3pm, data = weatherAUS, colour = factor(RainTomorrow
   geom_smooth() +
   ggtitle('Relación entre presiones a diferentes horas y lluvia al dia siguiente')
 
+#Imputación de valores faltantes
 
+data$Evaporation[which(is.na(data$Evaporation))] <- mean(data$Evaporation,na.rm = TRUE)
+hist(log(data$Evaporation))
+
+#Imputacion WindGustSpeed
+data$WindGustSpeed[which(is.na(data$WindGustSpeed))] <- mean(data$WindGustSpeed,na.rm = TRUE)
+
+par(mfrow=c(1,1))
+train %>% select(Temp9am, Temp3pm) %>% marginplot()
+#Posible imputación simple mediante un algoritmo de clustering k-NN (con la función VIM:kNN)
+#Parece que tiene sentido:
+train %>% select(Temp9am, Temp3pm) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train, variable=c("Temp9am","Temp3pm"))
+aggr(train_imputed%>% select(Temp9am_imp, Temp3pm_imp, Temp9am, Temp3pm), delimiter="_imp", numbers=TRUE, prop=c(TRUE,FALSE))
+
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Temp9am, na.rm = T), col=2, main="Temp9am")
+lines(density(train_imputed$Temp9am), col=3)
+plot(density(train$Temp3pm, na.rm = T), col=2, main="Temp3pm")
+lines(density(train_imputed$Temp3pm), col=3)
+
+
+#modelo:
+
+
+lm_fit <- lm(variablerespuesta~., data=Datasetweather)
+summary(lm_fit)
+
+#cuando tengamos el dagta set habria qu eelgir cuales vamos a usar, pero mejor usar esta funcion 
+
+for (metric in c("r2", "adjr2", "Cp", "bic")){plot(regfit_full, scale=metric)}
+
+regfit_fwd <- leaps::regsubsets(Salary~., Hitters, method="forward")
+for (metric in c("r2", "adjr2", "Cp", "bic")){plot(regfit_fwd, scale=metric)}
+
+
+regfit_bwd <- leaps::regsubsets(Salary~., Hitters, method="backward")
+for (metric in c("r2", "adjr2", "Cp", "bic")){plot(regfit_bwd, scale=metric)}
+
+#aqui seria aplicar el modelo
+
+x <- model.matrix(Salary~., Hitters_nona)[,-1]
+y <- Hitters_nona$Salary
+
+#lasso
+grid <- 10^seq(10,-2,length=100)
+
+set.seed(1234)
+cv_result <- cv.glmnet(x,y,alpha=1)
+plot(cv_result)
+
+best_lam <- cv_result$lambda.min
+out <- glmnet(x,y,alpha=1,lambda = best_lam)
+lasso_coef <- predict(out,type="coefficients",s=best_lam)[1:20,]
+lasso_coef[lasso_coef!=0]
+
+
+first_six <- max(which(cv_result$nzero == 6))
+my_lam <- cv_result$lambda[first_six]
+out_six <- glmnet(x,y,alpha=1,lambda = first_six)
+lasso_coef_six <- predict(out_six,type="coefficients")[1:20,]
+lasso_coef_six[lasso_coef_six!=0]
+  
 
