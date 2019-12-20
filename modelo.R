@@ -40,26 +40,24 @@ y_test = test_imputed_sinNA$RainTomorrow
 dim(test_imputed_sinNA)
 dim(train_imputed_sinNA)
 
-#Primero vemos Lasso
-library(glmnet)
-x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
 
-lambda_seq <- 10^seq(2, -2, by = -.1)
-cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
-plot(cv.out)
-# identifying best lamda
-best_lam <- cv.out$lambda.min
-lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
-
-c<-coef(lasso_best,s=best_lam,exact=TRUE)
-inds<-which(c!=0)
-variables<-row.names(c)[inds]
-variables
 new_train = train_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
-                                           "Cloud3pm", "RainToday", "RainTomorrow")
+                                           "RainTomorrow")
 new_test = test_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
-                                         "Cloud3pm", "RainToday", "RainTomorrow")
+                                         "RainTomorrow")
 
+
+weatherAUSCorr <- new_train %>% select(MaxTemp, RainToday, WindGustSpeed, Humidity3pm, Pressure3pm, RainTomorrow) %>% na.omit()
+
+numeric <- map_lgl(weatherAUSCorr, is.numeric)
+
+correlations <- cor(weatherAUSCorr[,numeric])
+
+diag(correlations) <- 0
+
+high <- apply(abs(correlations) >= 0.2, 2, any)
+
+corrplot(correlations[high, high], method = "color")
 
 #Modelo
 #Entrenamiento
@@ -85,17 +83,4 @@ tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
 
 
-residuos<-rstandard(glm_model_train) 
-# residuos estándares del modelo ajustado (completo) 
-win.graph() 
-# abre una ventana para los gráficos 
-par(mfrow=c(1,3)) 
-# divide la ventana en una fila y tres columnas 
-hist(residuos) 
-# histograma de los residuos estandarizados 
-boxplot(residuos) 
-# diagrama de cajas de los residuos estandarizados 
-qqnorm(residuos) 
-# gráfico de cuantiles de los residuos estandarizados 
-qqline(residuos)
 
