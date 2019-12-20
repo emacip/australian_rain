@@ -467,6 +467,16 @@ En esta parte haremos un analisis de las variables en comparacion con otras
 # EDA multivariante
 # Diagramas de barras
 # Histogramas separando variables
+
+#Correlación variables numéricas
+train_num = train %>% select_if(is.numeric) %>% na.omit()
+train_matrix = cor(train_num)
+corrplot(train_matrix,is.corr = FALSE, method='circle', order = "hclust", addrect = 2, tl.cex=0.8, tl.col = "black")
+
+
+
+
+
 train %>% 
   ggplot(aes(x = MinTemp, fill = RainTomorrow)) + 
   geom_histogram() +
@@ -560,10 +570,7 @@ ggplot(train, aes(x = RainTomorrow, y = Temp3pm, fill = RainTomorrow)) + geom_bo
 ## na.omit() %>%
 ## ggpairs(columns = 2:5, ggplot2::aes(colour=Season))
 
-#Correlación variables numéricas
-train_num = train %>% select_if(is.numeric) %>% na.omit()
-train_matrix = cor(train_num)
-corrplot(train_matrix,is.corr = FALSE, method='circle', order = "hclust", addrect = 2, tl.cex=0.8, tl.col = "black")
+
 
 #Scatterplot de las variables más correladas:
 #MinTemp, Temp9am
@@ -633,7 +640,7 @@ trainNAO <- na.omit(train)
 numeric <- map_lgl(trainNAO, is.numeric)
 
 correlations <- cor(trainNAO[,numeric])
-corrplot(correlations, method = "circle")
+#corrplot(correlations, method = "circle")
 
 
 #Evaporation, MinTemp
@@ -803,7 +810,7 @@ diag(correlations) <- 0
 
 high <- apply(abs(correlations) >= 0.8, 2, any)
 
-corrplot(correlations[high, high], method = "number")
+#corrplot(correlations[high, high], method = "number")
 ```
 
 ## Imputacion de datos faltantes
@@ -904,11 +911,45 @@ lines(density(train_imputed$Rainfall),col=3)
 ```
 
 Resto de Variables correladas para impulación de nulos
-```{r imputacion3}
+
+
+```{r imputacion humidity2}
 #Variables Humidity9am & Rainfall: método: imputación simple: KNN
-#train %>% select(Pressure3pm, Pressure9am) %>% VIM::kNN() 
+par(mfrow=c(1,1))
+train %>% select(Pressure3pm, Pressure9am) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(Pressure3pm, Pressure9am) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
 train_imputed <- kNN(train_imputed, variable=c("Pressure3pm","Pressure9am"))
+```
+###Comprobaciones:
+```{r imputacion4.5}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Pressure3pm,na.rm = T),col=2,main="Pressure3pm")
+lines(density(train_imputed$Pressure3pm),col=3)
+plot(density(train$Pressure9am,na.rm = T),col=2,main="Pressure9am")
+lines(density(train_imputed$Pressure9am),col=3)
+
+```
+
+
+```{r imputacion humidity1.5}
+#Variables Humidity9am & Rainfall: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Humidity3pm, Humidity9am) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(Humidity3pm, Humidity9am) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
 train_imputed <- kNN(train_imputed, variable=c("Humidity3pm","Humidity9am"))
+```
+###Comprobaciones:
+```{r imputacion4.6}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Humidity3pm,na.rm = T),col=2,main="Humidity3pm")
+lines(density(train_imputed$Humidity3pm),col=3)
+plot(density(train$Humidity9am,na.rm = T),col=2,main="Humidity9am")
+lines(density(train_imputed$Humidity9am),col=3)
+
 ```
 
 Aplicamos el mismo método para los nulos de test. Para ello hay que imputarlos junto con el dataframe de train.
@@ -957,8 +998,8 @@ p3 <- train_imputed %>% mutate(log10_Rainfall = log10(Rainfall + 0.01)) %>%  #+ 
   ggplot(aes(x=log10_Rainfall, colour=Season)) +
   geom_density()
 
-hist(train_imputed$Rainfall)
-hist(log10(train_imputed$Rainfall))
+#hist(train_imputed$Rainfall)
+#hist(log10(train_imputed$Rainfall))
 hist(log10(train_imputed$Rainfall) + 1)
 #Sigue sin quedar una distribución normal...
 grid.arrange(p1, p2, p3, nrow = 1)
@@ -969,11 +1010,11 @@ train_imputed %>% select(Season, Rainfall) %>%
   na.omit() %>%
   symbox(~ Rainfall, data = .)
 
-qqnorm(train_imputed$LogRainfall, ylab="LogRainfall")
-qqline(train_imputed$LogRainfall, col="red")
+#qqnorm(train_imputed$LogRainfall, ylab="LogRainfall")
+#qqline(train_imputed$LogRainfall, col="red")
 
 ```
-Resto de variables: siguen distribución normal
+
 ```{r imputacion8}
 #Resto de variables: siguen distribución normal
 qqnorm(train_imputed$MinTemp, ylab="MinTemp")
