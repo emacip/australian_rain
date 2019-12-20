@@ -1141,6 +1141,9 @@ high <- apply(abs(correlations) >= 0.2, 2, any)
 
 corrplot(correlations[high, high], method = "color")
 
+new_train %>% 
+  ggpairs(columns = 1:6, mapping = ggplot2::aes())
+
 #Modelo
 #Entrenamiento
 glm_model_train = glm(RainTomorrow~ ., data=new_train, family= binomial)
