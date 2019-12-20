@@ -44,6 +44,16 @@ library(fastDummies)
 library(caret)
 library(glmnet)
 library(blorr)
+library(magrittr)
+library(tidyr)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+library(VIM)
+library(visdat)
+library(naniar)
+library(caTools)
+library(corrplot)
 
 
 set.seed(123)
@@ -799,6 +809,12 @@ corrplot(correlations[high, high], method = "number")
 ## Imputacion de datos faltantes
 
 Cuando hemos terminado el analisis de las variables y hemos estudiado la correlacion que hay entre ellas podemos imputar los datos faltantes utilizando el resto de variables que tenemos. aprovechandonos asi de las variables que mas relación tienen entre ellas.
+```{r visualitation data}
+vis_dat(train)
+(cols_withNa <- apply(train, 2, function(x) sum(is.na(x))))
+gg_miss_upset(train)
+```
+
 
 Detección, tratamiento e imputación de datos faltantes
 Valores Faltantes
@@ -866,7 +882,7 @@ plot(density(train$MinTemp,na.rm = T),col=2,main="MinTemp")
 lines(density(train_imputed$MinTemp),col=3)
 ```
 Variables Humidity9am & Rainfall: método: imputación simple: KNN
-```{r imputacion3}
+```{r imputacion humidity}
 #Variables Humidity9am & Rainfall: método: imputación simple: KNN
 par(mfrow=c(1,1))
 train %>% select(Humidity9am, Rainfall) %>% marginplot()
@@ -898,9 +914,9 @@ train_imputed <- kNN(train_imputed, variable=c("Humidity3pm","Humidity9am"))
 Aplicamos el mismo método para los nulos de test. Para ello hay que imputarlos junto con el dataframe de train.
 ```{r imputacion7}
 #Aplicamos el mismo método para los nules de test. Para ello hay que imputarlos junto con el dataframe de train.
-train_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp", 'Humidity3pm','Humidity9am', 'Pressure3pm','Pressure9am')] <- list(NULL)
+train_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp", "Humidity3pm_imp", "Pressure3pm_imp","Pressure9am_imp")] <- list(NULL)
 
-imputacion_knn_test<-function(train_imputed, df_test){
+imputacion_knn_test<-function(train_imputed, test){
   train_imputed["dataset"] <- 'train'
   test["dataset"] <- 'test'
   dataset_knn = rbind(train_imputed, test) 
@@ -911,10 +927,10 @@ imputacion_knn_test<-function(train_imputed, df_test){
   dataset_knn_imputed <- kNN(dataset_knn, variable=c("Humidity9am","Rainfall"))
   train_imputed = subset(dataset_knn_imputed, dataset == 'train')
   test_imputed = subset(dataset_knn_imputed, dataset == 'test')
-  test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp")] <- list(NULL)
+  test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Rainfall_imp", "Humidity3pm_imp", "Pressure3pm_imp","Pressure9am_imp","dataset")] <- list(NULL)
   return (test_imputed) }
 
-test_imputed = imputacion_knn_test(train_imputed, df_test)
+test_imputed = imputacion_knn_test(train_imputed, test)
 ```
 Transformaciones de variables cuantitativas
 La única que no parece seguir una distribución normal es la variable RainFall
@@ -1023,6 +1039,8 @@ El modelo utilizado es una regresion lineal, sacamos los valores de la recta par
 ###Estandarización:
 ```{r modelo}
 
+
+
 #Estandarización
 numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
                   "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
@@ -1063,26 +1081,24 @@ y_test = test_imputed_sinNA$RainTomorrow
 dim(test_imputed_sinNA)
 dim(train_imputed_sinNA)
 
-#Primero vemos Lasso
-library(glmnet)
-x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
 
-lambda_seq <- 10^seq(2, -2, by = -.1)
-cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
-plot(cv.out)
-# identifying best lamda
-best_lam <- cv.out$lambda.min
-lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
-
-c<-coef(lasso_best,s=best_lam,exact=TRUE)
-inds<-which(c!=0)
-variables<-row.names(c)[inds]
-variables
 new_train = train_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
-                                           "Cloud3pm", "RainToday", "RainTomorrow")
+                                           "RainTomorrow")
 new_test = test_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
-                                         "Cloud3pm", "RainToday", "RainTomorrow")
+                                         "RainTomorrow")
 
+
+weatherAUSCorr <- new_train %>% select(MaxTemp, RainToday, WindGustSpeed, Humidity3pm, Pressure3pm, RainTomorrow) %>% na.omit()
+
+numeric <- map_lgl(weatherAUSCorr, is.numeric)
+
+correlations <- cor(weatherAUSCorr[,numeric])
+
+diag(correlations) <- 0
+
+high <- apply(abs(correlations) >= 0.2, 2, any)
+
+corrplot(correlations[high, high], method = "color")
 
 #Modelo
 #Entrenamiento
@@ -1106,4 +1122,6 @@ glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
 glm_test <- factor(glm_test, levels = c(0,1))
 tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
+
+
 ```
