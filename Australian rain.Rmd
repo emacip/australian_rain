@@ -29,7 +29,8 @@ Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos 
 
 
 ```{r librerias y seed, include=FALSE}
-library(ggplot2)
+library(ggplot2)< 
+
 library(dplyr)
 library(tidyverse)
 library(VIM)

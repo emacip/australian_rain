@@ -1,0 +1,232 @@
+---
+title: "EDA_corregido"
+author: "Maria Ruiz Teixidor"
+date: "25/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE,warning=FALSE)
+```
+
+## Introduccion
+
+Los datos obtenidos de Kaggle tienen la informacion atmosferica de varios años en australia, datos en los que viene incluida desde la velocidad del viento hasta la temperatura, en total 23 variables recogidas durante varios años en distintas ciudades de australia con las que se obtienen un data set de 140.000 lineas aproximadamente.
+
+Nuestro objetivo será predecir la lluvia del dia siguiente con los datos metereologicos del dia.
+
+## Primeros pasos sobre nuestro Dataset
+
+Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos cosas
+ 
+ -Utilizar una zona concreta de australia, sacada de la variable localizacion, de la cual elegimos 4 ciudades situadas en la costa sureste de Australia y 
+ -Utilizar la variable temporal de alguna forma, ya que considerabamos que tenia importancia pero no podiamos usar cada dia del año como un dato diferente, por lo que decidimos obtener apartir de la fecha la estacion del año en la que estaba cada linea,
+
+## EDA
+
+```{r librerias y seed, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(VIM)
+library(wesanderson)
+library(GGally)
+library(corrplot)
+library(mice)
+library(egg)
+library(kableExtra)
+library(car)
+library(fastDummies)
+library(caret)
+library(glmnet)
+library(blorr)
+library(magrittr)
+library(tidyr)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+library(VIM)
+library(visdat)
+library(naniar)
+library(caTools)
+library(corrplot)
+set.seed(123)
+```
+
+
+```{r head, echo=FALSE}
+weatherAUS <- read_csv("weatherAUS_2.csv")
+head(weatherAUS)
+```
+
+```{r datasets, echo=FALSE}
+train_ind <- sample(seq_len(nrow(weatherAUS)), size = 0.80 * nrow(weatherAUS))
+train <- weatherAUS[train_ind, ]
+temp <- weatherAUS[-train_ind, ]
+test_val_ind<- sample(seq_len(nrow(temp)), size = 0.50 * nrow(temp))
+test <- temp[test_val_ind, ]
+validation <- temp[-test_val_ind, ]
+
+cat(" Dimensiones dataset train: ", dim(train)) 
+cat(" Dimensiones dataset test: ", dim(test)) 
+cat(" Dimensiones dataset validación: ", dim(validation)) 
+```
+
+## Variables
+Analizamos las variables individuales por separado con distintos gráficos.
+
+### Location
+Antes que nada, visualizamos las ciudades de Australia elegidas y realizamos un conteo del número de días que han llovido o no en cada una.
+
+```{r location, echo=FALSE}
+var_location = train$Location
+# Comparación con el target
+ggplot(train, aes(Location)) + geom_bar(aes( fill = RainTomorrow), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) + scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4"))
+```
+
+
+Se visualiza ahora los días que han llovido en función de las ciudades y las estaciones del año.
+
+```{r location and season, echo=FALSE}
+# Comparación con las estaciones
+train_llueve = train %>% filter((RainTomorrow == 'Yes'))
+ggplot(train_llueve, aes(Location)) + geom_bar(aes( fill = Season), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) 
+```
+
+
+En este dataset hay muchos pares de variables que están fuertemente relacionadas, por ejemplo la temperatura máxima y mínima de un día, o la presión a las 9 de la mañana y la presión a las 3 de la tarde. Por ello, en el análisis individual de variables se estudiarán a la vez por una mejor comprensión.
+
+### MinTemp y MaxTemp
+```{r MinTemp y MaxTemp, echo=FALSE}
+sprintf("Temperatura mínima")
+summary(train$MinTemp)
+sprintf("Temperatura máxima")
+summary(train$MaxTemp)
+
+# Basic histogram
+hist_MinTemp = ggplot(train, aes(x=MinTemp)) + geom_histogram() + ggtitle('Histograma Temperatura Mínima')
+hist_MaxTemp = ggplot(train, aes(x=MaxTemp)) + geom_histogram() + ggtitle('Histograma  Temperatura Máxima')
+# Basic Density plot
+density = ggplot(train, aes(x = MinTemp)) + geom_density(fill="white") + ggtitle('Función de densidad de la Temperatura Mínima')
+# Basic box plot
+boxplot_MinTemp = ggplot(train, aes(y=MinTemp)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Temperatura Mínima')
+boxplot_MaxTemp = ggplot(train, aes(y=MaxTemp)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Temperatura Máxima')
+grid.arrange(hist_MinTemp, hist_MaxTemp, boxplot_MinTemp, boxplot_MaxTemp,  nrow = 2)
+```
+
+
+La temperatura mínima se podría asimilar a una distribución normal. La temperatura máxima tiene una cola a su derecha en la que aparecen mútliples valores atípicos.
+
+### Temp9am y Temp3pm
+Las variables Temp9am y Temp3pm son muy parecidas a las temperaturas máximas y mínimas.
+
+```{r Temp9am y Temp3pm, echo=FALSE}
+sprintf("Temperatura 9am")
+summary(train$Temp9am)
+sprintf("Temperatura 3pm")
+summary(train$Temp3pm)
+
+# Basic histogram
+hist_Temp9am = ggplot(train, aes(x=Temp9am)) + geom_histogram() + ggtitle('Histograma Temperatura 9am')
+hist_Temp3pm = ggplot(train, aes(x=Temp3pm)) + geom_histogram() + ggtitle('Histograma  Temperatura 3pm')
+# Basic Density plot
+density = ggplot(train, aes(x = MinTemp)) + geom_density(fill="white") + ggtitle('Función de densidad de la Temperatura 9am')
+# Basic box plot
+boxplot_Temp9am = ggplot(train, aes(y=Temp9am)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Temperatura 9am')
+boxplot_Temp3pm = ggplot(train, aes(y=Temp3pm)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Temperatura 3pm')
+grid.arrange(hist_Temp9am, hist_Temp3pm, boxplot_Temp9am, boxplot_Temp3pm,  nrow = 2)
+```
+
+### Pressure9am y Pressure3pm
+```{r Pressure9am y Pressure3pm, echo=FALSE}
+sprintf("Presión 9am")
+summary(train$Pressure9am)
+sprintf("Presión 3pm")
+summary(train$Pressure3pm)
+
+# Basic histogram
+hist_Pressure9am = ggplot(train, aes(x=Pressure9am)) + geom_histogram() + ggtitle('Histograma Presión 9am')
+hist_Pressure3pm = ggplot(train, aes(x=Pressure3pm)) + geom_histogram() + ggtitle('Histograma  Presión 3pm')
+# Basic Density plot
+density = ggplot(train, aes(x = Pressure9am)) + geom_density(fill="white") + ggtitle('Función de densidad de la Temperatura 9am')
+# Basic box plot
+boxplot_Pressure9am= ggplot(train, aes(y=Pressure9am)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Presión 9am')
+boxplot_Pressure3pm = ggplot(train, aes(y=Pressure3pm)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Presión 3pm')
+grid.arrange(hist_Pressure9am, hist_Pressure3pm, boxplot_Pressure9am, boxplot_Pressure3pm,  nrow = 2)
+```
+
+### Humidity9am y Humidity3pm
+```{r Humidity9am y Humidity3pm, echo=FALSE}
+sprintf("Presión 9am")
+summary(train$Humidity9am)
+sprintf("Presión 3pm")
+summary(train$Humidity3pm)
+
+# Basic histogram
+hist_Humidity9am = ggplot(train, aes(x=Humidity9am)) + geom_histogram() + ggtitle('Histograma Humedad 9am')
+hist_Humidity3pm = ggplot(train, aes(x=Humidity3pm)) + geom_histogram() + ggtitle('Histograma  Humedad 3pm')
+# Basic Density plot
+density = ggplot(train, aes(x = Humidity9am)) + geom_density(fill="white") + ggtitle('Función de densidad de la Temperatura 9am')
+# Basic box plot
+boxplot_Humidity9am= ggplot(train, aes(y=Humidity9am)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Humedad 9am')
+boxplot_Humidity3pm = ggplot(train, aes(y=Humidity3pm)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Humedad 3pm')
+grid.arrange(hist_Humidity9am, hist_Humidity3pm, boxplot_Humidity9am, boxplot_Humidity3pm,  nrow = 2)
+```
+
+### Cloud9am y Cloud3pm
+```{r Cloud9am y Cloud3pm, echo=FALSE}
+sprintf("Nubes 9am")
+summary(train$Cloud9am)
+sprintf("Nubes 3pm")
+summary(train$Cloud3pm)
+
+# Basic histogram
+hist_Cloud9am = ggplot(train, aes(x=Cloud9am)) + geom_histogram() + ggtitle('Histograma Nubes 9am')
+hist_Cloud3pm = ggplot(train, aes(x=Cloud3pm)) + geom_histogram() + ggtitle('Histograma  Nubes 3pm')
+grid.arrange(hist_Cloud9am, hist_Cloud3pm,  nrow = 1)
+```
+
+### WindSpeed9am y WindSpeed3pm
+```{r WindSpeed9am y WindSpeed3pm, echo=FALSE}
+sprintf("Velocidad del viento 9am")
+summary(train$WindSpeed9am)
+sprintf("Velocidad del viento 3pm")
+summary(train$WindSpeed3pm)
+
+# Basic histogram
+hist_WindSpeed9am = ggplot(train, aes(x=WindSpeed9am)) + geom_histogram() + ggtitle('Histograma Velocidad del viento 9am')
+hist_WindSpeed3pm = ggplot(train, aes(x=WindSpeed3pm)) + geom_histogram() + ggtitle('Histograma Velocidad del viento 3pm')
+
+# Basic box plot
+boxplot_WindSpeed9am = ggplot(train, aes(y=WindSpeed9am)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Velocidad del viento 9am')
+boxplot_WindSpeed3pm = ggplot(train, aes(y=WindSpeed3pm)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Velocidad del viento 3pm')
+grid.arrange(hist_WindSpeed9am, hist_WindSpeed3pm, boxplot_WindSpeed9am, boxplot_WindSpeed3pm,  nrow = 2)
+```
+
+### WindDir9am y WindDir3pm
+```{r WindDir9am y WindDir3pm, echo=FALSE}
+
+# Basic Barplot
+plot_WindDir9am = ggplot(train, aes(x=WindDir9am)) + geom_bar() + ggtitle('Histograma Dirección del viento 9am')
+plot_WindDir3pm = ggplot(train, aes(x=WindDir3pm)) + geom_bar() + ggtitle('Histograma  Dirección del viento 3pm')
+grid.arrange(plot_WindDir9am, plot_WindDir3pm,  nrow = 1)
+```
+
+WindGustDir: The direction of the strongest wind gust in the 24 hours to midnight.
+WindGustSpeed: The speed (km/h) of the strongest wind gust in the 24 hours to midnight.
+
+```{r WindGustDir, echo=FALSE}
+
+plot_WindDir = ggplot(train, aes(x=WindGustDir)) + geom_bar() + ggtitle('Histograma Dirección del viento más fuerte en las últimas 24h')
+
+plot_WindDir
+```
+
+```{r , echo=FALSE}
+
+
+```
+
+
+
+
