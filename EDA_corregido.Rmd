@@ -78,7 +78,7 @@ Analizamos las variables individuales por separado con distintos gráficos.
 ### Location
 Antes que nada, visualizamos las ciudades de Australia elegidas y realizamos un conteo del número de días que han llovido o no en cada una.
 
-```{r location, echo=FALSE}
+```{r location, echo=FALSE,  fig.align='center'}
 var_location = train$Location
 # Comparación con el target
 ggplot(train, aes(Location)) + geom_bar(aes( fill = RainTomorrow), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) + scale_fill_manual('RainTomorrow', values = c("No" = "lightsteelblue", "Yes" = "deepskyblue4"))
@@ -87,7 +87,7 @@ ggplot(train, aes(Location)) + geom_bar(aes( fill = RainTomorrow), position = po
 
 Se visualiza ahora los días que han llovido en función de las ciudades y las estaciones del año.
 
-```{r location and season, echo=FALSE}
+```{r location and season, echo=FALSE,  fig.align='center'}
 # Comparación con las estaciones
 train_llueve = train %>% filter((RainTomorrow == 'Yes'))
 ggplot(train_llueve, aes(Location)) + geom_bar(aes( fill = Season), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) 
@@ -97,7 +97,7 @@ ggplot(train_llueve, aes(Location)) + geom_bar(aes( fill = Season), position = p
 En este dataset hay muchos pares de variables que están fuertemente relacionadas, por ejemplo la temperatura máxima y mínima de un día, o la presión a las 9 de la mañana y la presión a las 3 de la tarde. Por ello, en el análisis individual de variables se estudiarán a la vez por una mejor comprensión.
 
 ### MinTemp y MaxTemp
-```{r MinTemp y MaxTemp, echo=FALSE}
+```{r MinTemp y MaxTemp, echo=FALSE,  fig.align='center'}
 sprintf("Temperatura mínima")
 summary(train$MinTemp)
 sprintf("Temperatura máxima")
@@ -120,7 +120,7 @@ La temperatura mínima se podría asimilar a una distribución normal. La temper
 ### Temp9am y Temp3pm
 Las variables Temp9am y Temp3pm son muy parecidas a las temperaturas máximas y mínimas.
 
-```{r Temp9am y Temp3pm, echo=FALSE}
+```{r Temp9am y Temp3pm, echo=FALSE,  fig.align='center'}
 sprintf("Temperatura 9am")
 summary(train$Temp9am)
 sprintf("Temperatura 3pm")
@@ -138,7 +138,7 @@ grid.arrange(hist_Temp9am, hist_Temp3pm, boxplot_Temp9am, boxplot_Temp3pm,  nrow
 ```
 
 ### Pressure9am y Pressure3pm
-```{r Pressure9am y Pressure3pm, echo=FALSE}
+```{r Pressure9am y Pressure3pm, echo=FALSE,  fig.align='center'}
 sprintf("Presión 9am")
 summary(train$Pressure9am)
 sprintf("Presión 3pm")
@@ -156,7 +156,7 @@ grid.arrange(hist_Pressure9am, hist_Pressure3pm, boxplot_Pressure9am, boxplot_Pr
 ```
 
 ### Humidity9am y Humidity3pm
-```{r Humidity9am y Humidity3pm, echo=FALSE}
+```{r Humidity9am y Humidity3pm, echo=FALSE,  fig.align='center'}
 sprintf("Presión 9am")
 summary(train$Humidity9am)
 sprintf("Presión 3pm")
@@ -174,7 +174,7 @@ grid.arrange(hist_Humidity9am, hist_Humidity3pm, boxplot_Humidity9am, boxplot_Hu
 ```
 
 ### Cloud9am y Cloud3pm
-```{r Cloud9am y Cloud3pm, echo=FALSE}
+```{r Cloud9am y Cloud3pm, echo=FALSE,  fig.align='center'}
 sprintf("Nubes 9am")
 summary(train$Cloud9am)
 sprintf("Nubes 3pm")
@@ -187,7 +187,7 @@ grid.arrange(hist_Cloud9am, hist_Cloud3pm,  nrow = 1)
 ```
 
 ### WindSpeed9am y WindSpeed3pm
-```{r WindSpeed9am y WindSpeed3pm, echo=FALSE}
+```{r WindSpeed9am y WindSpeed3pm, echo=FALSE,  fig.align='center'}
 sprintf("Velocidad del viento 9am")
 summary(train$WindSpeed9am)
 sprintf("Velocidad del viento 3pm")
@@ -204,29 +204,343 @@ grid.arrange(hist_WindSpeed9am, hist_WindSpeed3pm, boxplot_WindSpeed9am, boxplot
 ```
 
 ### WindDir9am y WindDir3pm
-```{r WindDir9am y WindDir3pm, echo=FALSE}
+```{r WindDir9am y WindDir3pm, echo=FALSE,  fig.align='center'}
 
 # Basic Barplot
-plot_WindDir9am = ggplot(train, aes(x=WindDir9am)) + geom_bar() + ggtitle('Histograma Dirección del viento 9am')
-plot_WindDir3pm = ggplot(train, aes(x=WindDir3pm)) + geom_bar() + ggtitle('Histograma  Dirección del viento 3pm')
+plot_WindDir9am = ggplot(train, aes(x=WindDir9am)) + geom_bar() + ggtitle('Histograma Dirección del viento 9am') + theme(axis.text.x=element_text(angle=90,hjust=1))
+plot_WindDir3pm = ggplot(train, aes(x=WindDir3pm)) + geom_bar() + ggtitle('Histograma  Dirección del viento 3pm') + theme(axis.text.x=element_text(angle=90,hjust=1))
 grid.arrange(plot_WindDir9am, plot_WindDir3pm,  nrow = 1)
 ```
 
 WindGustDir: The direction of the strongest wind gust in the 24 hours to midnight.
 WindGustSpeed: The speed (km/h) of the strongest wind gust in the 24 hours to midnight.
 
-```{r WindGustDir, echo=FALSE}
+```{r WindGustSpeed y WindGustDir, echo=FALSE,  fig.align='center'}
+sprintf("Velocidad más fuerte del viento")
+summary(train$WindGustSpeed)
 
+#Barplot
 plot_WindDir = ggplot(train, aes(x=WindGustDir)) + geom_bar() + ggtitle('Histograma Dirección del viento más fuerte en las últimas 24h')
+# Basic histogram
+hist_WindGustSpeed = ggplot(train, aes(x=WindGustSpeed)) + geom_histogram() + ggtitle('Histograma Dirección del viento más fuerte en las últimas 24h')
+# Basic box plot
+boxplot_WindGustSpeed = ggplot(train, aes(y=WindGustSpeed)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Dirección del viento más fuerte en las últimas 24h')
 
-plot_WindDir
+grid.arrange(hist_WindGustSpeed, boxplot_WindGustSpeed, plot_WindDir, nrow = 2)
 ```
 
-```{r , echo=FALSE}
+Analizamos cuatro variables que no están, a priori, relacionadas por pares.
+
+### Risk_mm, Rainfall, Evaporation, Sunshine
+RISK_MM
+```{r RISK_MM, echo=FALSE,  fig.align='center'}
+summary(train$RISK_MM)
+hist_RISK_MM = ggplot(train, aes(x=RISK_MM)) + geom_histogram() + ggtitle('Histograma RISK_MM')
+boxplot_RISK_MM = ggplot(train, aes(y=RISK_MM)) +  geom_boxplot(fill="white") + ggtitle('Boxplot RISK_MM')
+grid.arrange(hist_RISK_MM, boxplot_RISK_MM, nrow = 1)
+```
+Rainfall
+```{r Rainfall, echo=FALSE,  fig.align='center'}
+summary(train$Rainfall)
+hist_Rainfall = ggplot(train, aes(x=Rainfall)) + geom_histogram() + ggtitle('Histograma Rainfall')
+boxplot_Rainfall = ggplot(train, aes(y=Rainfall)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Rainfall')
+grid.arrange(hist_Rainfall, boxplot_Rainfall, nrow = 1)
+```
+Velocidad de Evaporation
+```{r Evaporation, echo=FALSE,  fig.align='center'}
+summary(train$Evaporation)
+hist_Evaporation = ggplot(train, aes(x=Evaporation)) + geom_histogram() + ggtitle('Histograma Evaporation')
+boxplot_Evaporation = ggplot(train, aes(y=Evaporation)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Evaporation')
+grid.arrange(hist_Evaporation, boxplot_Evaporation, nrow = 1)
+```
+Velocidad de Sunshine
+```{r Sunshine, echo=FALSE,  fig.align='center'}
+summary(train$Sunshine)
+hist_Sunshine = ggplot(train, aes(x=Sunshine)) + geom_histogram() + ggtitle('Histograma Sunshine')
+boxplot_Sunshine = ggplot(train, aes(y=Sunshine)) +  geom_boxplot(fill="white") + ggtitle('Boxplot Sunshine')
+grid.arrange(hist_Sunshine, boxplot_Sunshine, nrow = 1)
+```
+
+### Análisis multivariables
+Analizamos la relación unas variables con  otras.
+
+```{r corrplot, echo=FALSE,  fig.align='center'}
+#Correlación variables numéricas
+train_num = train %>% select_if(is.numeric) %>% na.omit()
+train_matrix = cor(train_num)
+corrplot(train_matrix,is.corr = FALSE, method='circle', order = "hclust", addrect = 2, tl.cex=0.8, tl.col = "black")
+```
+
+Gracias a este gráfico demostramos que los pares de variables citados sí están fuertemente relacionados. Por ejemplo, la presión a las 9 de la mañana con la presión a las 3 de la tarde: si una aumenta, la otra también. Destacar que también hay correlaciones inversas: cuando aumenta la variable Sunshine, disminuye la Cloud9am.
 
 
+Analizamos en general la relación entre las variables con las estaciones, la variable de salida (RainTomorrow) y las ciudades. Para ello seleccionamos una de las variables de los pares y el resto. Las variables Rainfall y Risk_mm no las mostramos pues su distribución es difícil de visualizar. Se analizarán posteriormente con las transformaciones.
+
+Relaciones por estaciones.
+
+```{r , echo=FALSE,  fig.align='center'}
+new_train = train %>% select("Season", "MaxTemp","Temp9am","Cloud9am","WindGustSpeed", "Humidity3pm", "Pressure3pm", "Evaporation", "Sunshine")
+
+numeric <- map_lgl(new_train, is.numeric)
+
+new_train %>% select(1, 2:9) %>%
+  na.omit() %>%
+  ggpairs(columns = 2:9, ggplot2::aes(colour=Season))
+```
+
+La Temperatura (MaxTemp, Temp9am), la presión (Pressure3pm) y evaporación muestran un claro comportamiento diferente según la estación.
+
+
+Relaciones por ciudades.
+
+
+```{r , echo=FALSE,  fig.align='center'}
+new_train = train %>% select("Location", "MaxTemp","Temp9am","Cloud9am","WindGustSpeed", "Humidity3pm", "Pressure3pm", "Evaporation", "Sunshine")
+
+numeric <- map_lgl(new_train, is.numeric)
+
+new_train %>% select(1, 2:9) %>%
+  na.omit() %>%
+  ggpairs(columns = 2:9, ggplot2::aes(colour=Location))
+```
+
+La temperatura es la variable dónde se puede observar más claramente que tiene un comportamiento diferente para cada ciudad.
+
+Relaciones por RainTomorrow, si llueve o no.
+
+```{r , echo=FALSE,  fig.align='center'}
+new_train = train %>% select("RainTomorrow", "MaxTemp","Temp9am","Cloud9am","WindGustSpeed", "Humidity3pm", "Pressure3pm", "Evaporation", "Sunshine")
+
+numeric <- map_lgl(new_train, is.numeric)
+
+new_train %>% select(1, 2:9) %>%
+  na.omit() %>%
+  ggpairs(columns = 2:9, ggplot2::aes(colour=RainTomorrow))
 ```
 
 
+A partir de estas relaciones, indagamos con más detalle las relaciones que parecen interesantes.
+
+Las cuatro variables de temperatura son muy parecidas, como puede observarse en sus distribuciones:
+
+```{r , echo=FALSE,  fig.align='center'}
+density_MinTemp = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = MinTemp, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('MinTemp - RainTomorrow')
+
+density_MinTemp = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = MinTemp, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('MaxTemp - RainTomorrow')
+
+density_Temp9am = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Temp9am, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Temp9am - RainTomorrow')
+
+density_Temp3pm = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Temp3pm, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Temp3pm - RainTomorrow')
+
+grid.arrange(density_MinTemp, density_MinTemp, density_Temp9am, density_Temp3pm,  nrow = 2)
+```
+
+Al estar relacionadas y tener un comportamiento similar posteriormente se estudiará introdudir al modelo interacciones entre éstas.
+
+Veamos cómo se comporta una de ellas según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+boxplot_Temp9am_season = train %>%
+  mutate(test = factor(Season)) %>%
+  ggplot(aes(y = Temp9am, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Temp9am - Season')
+
+boxplot_Temp9am_location = train %>%
+  mutate(test = factor(Location)) %>%
+  ggplot(aes(y = Temp9am, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Temp9am - Location')
+
+grid.arrange(boxplot_Temp9am_season, boxplot_Temp9am_location, nrow = 2)
+```
+
+Comprobamos que los pares de temperaturas están fuertemente relacionados.
+
+```{r , echo=FALSE,  fig.align='center'}
+
+scatterplot_Temph = qplot(Temp9am, Temp3pm, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() + ggtitle('Temperaturas a diferentes horas y RainTomorrow')
+
+scatterplot_Temp = qplot(MinTemp, MaxTemp, data = train, colour = factor(RainTomorrow)) +
+  geom_smooth() + ggtitle('Temperaturas máximas y mínimas y RainTomorrow')
+
+grid.arrange(scatterplot_Temph, scatterplot_Temp, nrow = 2)
+```
+
+```{r , echo=FALSE,  fig.align='center'}
+density_Humidity3pm = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Humidity3pm, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Densidades Humidity3pm - RainTomorrow')
+
+density_Humidity9am = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Humidity9am, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Humidity9am - RainTomorrow')
+
+density_Pressure3pm = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Pressure3pm, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Pressure3pm - RainTomorrow')
+
+density_Pressure9am = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Pressure9am, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Pressure9am - RainTomorrow')
+
+density_Sunshine = train %>%
+  mutate(test = factor(RainTomorrow, labels = c('negative', 'positive'))) %>%
+  ggplot(aes(x = Sunshine, fill = test)) + 
+  geom_density(alpha = .3) +
+  ggtitle('Sunshine - RainTomorrow')
+
+grid.arrange(density_Humidity3pm, density_Humidity9am, density_Pressure3pm, density_Pressure9am, density_Sunshine, nrow = 3)
+```
+
+Veamos cómo se comporta la presión según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+boxplot_Pressure9am_season = train %>%
+  mutate(test = factor(Season)) %>%
+  ggplot(aes(y = Pressure9am, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Pressure9am - Season')
+
+boxplot_Pressure9am_location = train %>%
+  mutate(test = factor(Location)) %>%
+  ggplot(aes(y = Pressure9am, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Pressure9am - Location')
+
+grid.arrange(boxplot_Pressure9am_season, boxplot_Pressure9am_location, nrow = 2)
+```
+
+```{r , echo=FALSE,  fig.align='center'}
+
+scatterplot_Humedad = qplot(Humidity9am, Humidity3pm, data = train, colour = factor(RainTomorrow)) + ggtitle('Humedad a diferentes horas y RainTomorrow')
+
+scatterplot_Humedad
+```
+
+
+Veamos cómo se comporta la humedad según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+boxplot_Humidity9am_season = train %>%
+  mutate(test = factor(Season)) %>%
+  ggplot(aes(y = Humidity9am, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Humidity9am - Season')
+
+boxplot_Humidity9am_location = train %>%
+  mutate(test = factor(Location)) %>%
+  ggplot(aes(y = Humidity9am, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Humidity9am - Location')
+
+grid.arrange(boxplot_Humidity9am_season, boxplot_Humidity9am_location, nrow = 2)
+```
+
+Veamos cómo se comporta la evaporación según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+boxplot_Evaporation_season = train %>%
+  mutate(test = factor(Season)) %>%
+  ggplot(aes(y = Evaporation, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Evaporation - Season')
+
+boxplot_Evaporation_location = train %>%
+  mutate(test = factor(Location)) %>%
+  ggplot(aes(y = Evaporation, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Evaporation - Location')
+
+grid.arrange(boxplot_Evaporation_season, boxplot_Evaporation_location, nrow = 2)
+```
+
+Veamos cómo se comportan las horas de sol según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+boxplot_Sunshine_season = train %>%
+  mutate(test = factor(Season)) %>%
+  ggplot(aes(y = Sunshine, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Sunshine - Season')
+
+boxplot_Sunshine_location = train %>%
+  mutate(test = factor(Location)) %>%
+  ggplot(aes(y = Sunshine, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('Sunshine - Location')
+
+grid.arrange(boxplot_Sunshine_season, boxplot_Sunshine_location, nrow = 2)
+```
+
+Veamos cómo se comporta la velocidad del viento según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+boxplot_WindGustSpeed_season = train %>%
+  mutate(test = factor(Season)) %>%
+  ggplot(aes(y = WindGustSpeed, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('WindGustSpeed - Season')
+
+boxplot_WindGustSpeed_location = train %>%
+  mutate(test = factor(Location)) %>%
+  ggplot(aes(y = WindGustSpeed, fill = test)) + 
+  geom_boxplot() +
+  ggtitle('WindGustSpeed - Location')
+
+grid.arrange(boxplot_WindGustSpeed_season, boxplot_WindGustSpeed_location, nrow = 2)
+```
+
+Veamos cómo se comportan las nubes del viento según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+
+barplot_cloud9am = ggplot(train, aes(Cloud9am)) + geom_bar(aes(fill = RainTomorrow), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) 
+
+barplot_cloud3pm = ggplot(train, aes(Cloud3pm)) + geom_bar(aes(fill = RainTomorrow), position = position_dodge(0.9)) + theme(axis.text.x=element_text(angle=90,hjust=1)) 
+
+grid.arrange(barplot_cloud9am, barplot_cloud3pm, nrow = 2)
+```
+
+Veamos cómo se comportan la velocidad del viento y su dirección según las estaciones y ciudades:
+
+```{r , echo=FALSE,  fig.align='center'}
+
+train %>%
+  group_by(WindDir3pm, RainTomorrow) %>% 
+  summarise(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
+  ggplot(aes(x=WindDir3pm, y=avg_WindSpeed3pm, fill=RainTomorrow)) + geom_bar(stat ="identity", position = "dodge") + ggtitle("relacion entre direccion de viento y velocidad con la lluvia del dia siguiente")
+```
+
+
+```{r , echo=FALSE,  fig.align='center'}
+
+
+```
 
 
