@@ -913,7 +913,6 @@ lines(density(train_imputed$Rainfall),col=3)
 
 Resto de Variables correladas para impulación de nulos
 
-
 ```{r imputacion humidity2}
 #Variables Humidity9am & Rainfall: método: imputación simple: KNN
 par(mfrow=c(1,1))
