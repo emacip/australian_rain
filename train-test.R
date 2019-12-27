@@ -25,6 +25,7 @@ library(visdat)
 library(naniar)
 library(caTools)
 library(corrplot)
+library(cowplot)
 
 weatherAUS <- weatherAUS_2
 #read.csv("~/Escritorio/MASTER/FUNDAMENTOS DE ANÁLISIS DE DATOS/practica_FAD/australian_rain/weatherAUS_2.csv")
