@@ -560,8 +560,56 @@ grid.arrange(boxplot_Rainfall_season, boxplot_Rainfall_location, nrow = 2)
 
 ## Interaccion entre variables y combinacion
 
+Se puede observar en la grafica siguiente que no ninguna variable individual es mejor que otra para diferenciar si llueve o no llueve, estudiaremes `MinTemp`, `MaxTemp`, `Temp9am`, `Temp3pm` y las `Pressure9am` y las `Pressure3pm`.
+
+```{r interaccion, echo=FALSE,  fig.align='center'}
+
+boxplot_vars <- function(var, title) {
+  
+  ggplot(train, aes(x = RainTomorrow, y = var)) +
+    geom_violin() +
+    theme_hc() + 
+    stat_summary(fun.data = "mean_sdl", colour="blue") +
+    ylab(title)
+  
+}
 
 
+mintemp <- boxplot_vars(train$MinTemp, "MinTemp")
+maxtemp <- boxplot_vars(train$MaxTemp, "MaxTemp")
+temp9 <- boxplot_vars(train$Temp9am, "Temp9am")
+temp3 <- boxplot_vars(train$Temp3pm, "Temp3pm")
+press9 <- boxplot_vars(train$Pressure9am, "Pressure9am")
+press3 <- boxplot_vars(train$Pressure3pm, "Pressure3pm")
+
+plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, nrow = 3, ncol = 2)
+```
+
+
+
+Ahora crearemos unas nuevas varibles combinandolas entre si.
+
+
+```{r grafico violin nuevas variables, echo=FALSE}
+
+train$AvgTemp <- round(rowMeans(train[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)
+train$Temp <- round(rowMeans(train[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
+train$Pressure <- round(rowMeans(train[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
+
+#Test
+test$AvgTemp <- round(rowMeans(test[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)
+test$Temp <- round(rowMeans(test[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
+test$Pressure <- round(rowMeans(test[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
+
+
+AvgTemp <- boxplot_vars(train$AvgTemp, "AvgTemp")
+temp <- boxplot_vars(train$Temp, "Temp")
+press <- boxplot_vars(train$Pressure, "press")
+
+
+plot_grid(AvgTemp, temp, press, nrow = 3, ncol = 1)
+
+```
 
 
 
@@ -785,6 +833,19 @@ Ahora que ya hemos logrado imputar la variable de Rainfall la utilizaremos para 
 train_imputed$RainToday[which(is.na(train_imputed$RainToday))] <- ifelse(train_imputed$Rainfall == 0, "No", "Yes")
 test_imputed$RainToday[which(is.na(test_imputed$RainToday))] <- ifelse(test_imputed$Rainfall == 0, "No", "Yes")
 
+
+
+train_imputed$RainToday <- ifelse(train_imputed$RainToday == "Yes", 1, 0)
+train_imputed$RainToday = as.numeric(train_imputed$RainToday)
+
+train_imputed$RainTomorrow <- ifelse(train_imputed$RainTomorrow  == "Yes", 1, 0)
+train_imputed$RainTomorrow  = as.numeric(train_imputed$RainTomorrow )
+
+test_imputed$RainToday <- ifelse(test_imputed$RainToday == "Yes", 1, 0)
+test_imputed$RainToday = as.numeric(test_imputed$RainToday)
+
+test_imputed$RainTomorrow <- ifelse(test_imputed$RainTomorrow  == "Yes", 1, 0)
+test_imputed$RainTomorrow  = as.numeric(test_imputed$RainTomorrow )
 ```
 
 
@@ -982,8 +1043,8 @@ test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"Pressure9am_imp","Pressure3pm_imp",
 ```
 
 ```{r dummy var }
-train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm","RainToday","RainTomorrow"))
-test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm","RainToday","RainTomorrow"))
+train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm"))
+test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm"))
 ```
 
 
@@ -1077,3 +1138,108 @@ test_imputed %>%
 El modelo utilizado es una regresion logistica, sacamos los valores de la recta para cada variable mediante lasso
 
 ###Estandarización:
+
+```{r model}
+
+
+
+#Estandarización
+numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
+                  "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
+                  "Pressure3pm" , "Temp9am", "Temp3pm", "RISK_MM")
+
+preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
+train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
+
+#Aplicamos la estandarización con las medias y varianzas de train
+test_imputed[numeric_vars] <- predict(preprocessParams, test_imputed[numeric_vars])
+
+#Procesado de variables cualitativas: creación variables dummies
+train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
+test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
+
+train_imputed$Location <- NULL
+train_imputed$Season <- NULL
+train_imputed$Date <- NULL
+train_imputed$WindGustDir <- NULL
+
+
+
+test_imputed$Location <- NULL
+test_imputed$Season <- NULL
+test_imputed$Date <- NULL
+test_imputed$WindGustDir <- NULL
+test_imputed$WindDir3pm_NA <- NULL
+test_imputed$WindDir9am_NA <- NULL
+
+
+#Selección de variables 
+
+train_imputed_sinNA = na.omit(train_imputed)
+x_train = train_imputed_sinNA[, !names(train_imputed_sinNA) %in% c("RainTomorrow")] 
+
+y_train = train_imputed_sinNA$RainTomorrow
+
+test_imputed_sinNA = na.omit(test_imputed)
+x_test = test_imputed_sinNA[, !names(test_imputed_sinNA) %in% c("RainTomorrow")] 
+y_test = test_imputed_sinNA$RainTomorrow
+
+dim(test_imputed_sinNA)
+dim(train_imputed_sinNA)
+
+
+#Primero vemos Lasso
+x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
+
+lambda_seq <- 10^seq(2, -2, by = -.1)
+cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
+
+plot(cv.out)
+# identifying best lamda
+best_lam <- cv.out$lambda.min
+lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
+
+c<-coef(lasso_best,s=best_lam,exact=TRUE)
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
+variables
+
+
+new_train = train_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S",      
+                                           "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday",          
+                                           "Location_Adelaide", "Location_Sydney", "Season_summer","WindGustDir_ENE", "WindGustDir_NNW",   
+                                           "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "RainTomorrow") 
+  
+
+new_test = test_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S",      
+                                         "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday",          
+                                         "Location_Adelaide", "Location_Sydney", "Season_summer","WindGustDir_ENE", "WindGustDir_NNW",   
+                                         "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "RainTomorrow")
+
+
+
+
+#Modelo
+#Entrenamiento
+glm_model_train = glm(RainTomorrow~ ., data=new_train, family= binomial)
+
+#Test
+glm_test = predict(glm_model_train, newdata = new_test, type = "response")
+
+#Evaluación modelo
+
+#Summary
+summary(glm_model_train)
+#Tabla de ganancia
+logistic_gains_table <- blr_gains_table(glm_model_train, data = new_train)
+#Curva ROC
+blr_roc_curve(logistic_gains_table)
+#Matriz de confusión
+
+umbral_dec = 0.46
+glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
+glm_test <- factor(glm_test, levels = c(0,1))
+tabla_conf <- table(glm_test, new_test$RainTomorrow)
+caret::confusionMatrix(tabla_conf, positive = '1')
+
+```
