@@ -26,6 +26,7 @@ plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, nrow = 3, ncol = 2)
 train$AvgTemp <- round(rowMeans(train[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)
 train$Temp <- round(rowMeans(train[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
 train$Pressure <- round(rowMeans(train[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
+train$Pressure <- round(rowMeans(train[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
 
 #Test
 test$AvgTemp <- round(rowMeans(test[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)

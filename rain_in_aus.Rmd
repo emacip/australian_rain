@@ -16,6 +16,9 @@ output:
 
 ## Introducción y definición de objetivos 
 
+Link repositorio en [Github Australian Rain](https://github.com/emacip/australian_rain)
+
+
 Los datos obtenidos de Kaggle tienen la información atmosférica de varios años en Australia, datos en los que viene incluida desde la velocidad del viento hasta la temperatura, en total 23 variables recogidas durante varios años en distintas ciudades de Australia con las que se obtienen un dataset de 140.000 líneas aproximadamente.
 
 Nuestro objetivo será predecir la lluvia del día siguiente a partir los datos metereológicos del día (vamos a realizar una regresión logística). Nos interesará tener una matriz de confusión dónde los verdaderos positivos y los verdaderos negativos sean altos. Sobretodo nos interesará que los verdaderos positivos, es decir predecir que llueve el día siguiente, lo predice bien el modelo. 
@@ -560,7 +563,7 @@ grid.arrange(boxplot_Rainfall_season, boxplot_Rainfall_location, nrow = 2)
 
 ## Interaccion entre variables y combinacion
 
-Se puede observar en la grafica siguiente que no ninguna variable individual es mejor que otra para diferenciar si llueve o no llueve, estudiaremes `MinTemp`, `MaxTemp`, `Temp9am`, `Temp3pm` y las `Pressure9am` y las `Pressure3pm`.
+Se puede observar en la grafica siguiente que ninguna variable individual es mejor que otra para diferenciar si llueve o no llueve, estudiaremes `MinTemp`, `MaxTemp`, `Temp9am`, `Temp3pm`, `Pressure9am`, `Pressure3pm`, `Humidity9am`, `Humidity3pm`.
 
 ```{r interaccion, echo=FALSE,  fig.align='center'}
 
@@ -581,33 +584,36 @@ temp9 <- boxplot_vars(train$Temp9am, "Temp9am")
 temp3 <- boxplot_vars(train$Temp3pm, "Temp3pm")
 press9 <- boxplot_vars(train$Pressure9am, "Pressure9am")
 press3 <- boxplot_vars(train$Pressure3pm, "Pressure3pm")
-
-plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, nrow = 3, ncol = 2)
+humidity9 <- boxplot_vars(train$Humidity9am, "Humiditye9am")
+humidity3 <- boxplot_vars(train$Humidity3pm, "Humidity3pm")
+plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, humidity9, humidity3, nrow = 4, ncol = 2)
 ```
 
 
 
 Ahora crearemos unas nuevas varibles combinandolas entre si.
+Las usaremos en el modelo mas adelante para ajustarlo.
 
-
-```{r grafico violin nuevas variables, echo=FALSE}
+```{r grafico violin nuevas variables, echo=FALSE, fig.align='center'}
 
 train$AvgTemp <- round(rowMeans(train[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)
 train$Temp <- round(rowMeans(train[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
 train$Pressure <- round(rowMeans(train[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
+train$Humidity <- round(rowMeans(train[c('Humidity9am', 'Humidity3pm')], na.rm=TRUE),digits=2)
 
 #Test
 test$AvgTemp <- round(rowMeans(test[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)
 test$Temp <- round(rowMeans(test[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
 test$Pressure <- round(rowMeans(test[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
-
+test$Humidity <- round(rowMeans(test[c('Humidity9am', 'Humidity3pm')], na.rm=TRUE),digits=2)
 
 AvgTemp <- boxplot_vars(train$AvgTemp, "AvgTemp")
 temp <- boxplot_vars(train$Temp, "Temp")
 press <- boxplot_vars(train$Pressure, "press")
+humidity <- boxplot_vars(train$Humidity, "Humidity")
 
 
-plot_grid(AvgTemp, temp, press, nrow = 3, ncol = 1)
+plot_grid(AvgTemp, temp, press, humidity, nrow = 4, ncol = 1)
 
 ```
 
@@ -1028,10 +1034,15 @@ test_imputed$WindSpeed3pm <- test_imputed3$WindSpeed3pm
 ```
 
 
+```{r imputacion WindGustSpeed}
 
+a <- data.frame(WindSpeed9am= train_imputed$WindSpeed9am, WindSpeed3pm= train_imputed$WindSpeed3pm)
+train_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- rowMeans(a, na.rm=TRUE)
 
+b <- data.frame(WindSpeed9am= test_imputed$WindSpeed9am, WindSpeed3pm= test_imputed$WindSpeed3pm)
+test_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- rowMeans(b, na.rm=TRUE)
 
-
+```
 
 
 
@@ -1071,9 +1082,7 @@ p3 <- train_imputed %>% mutate(log10_Rainfall = log10(Rainfall + 0.01)) %>%  #+ 
   ggplot(aes(x=log10_Rainfall, colour=Season)) +
   geom_density()
 
-hist(train_imputed$Rainfall)
-hist(log10(train_imputed$Rainfall))
-hist(log10(train_imputed$Rainfall) + 1)
+
 #Sigue sin quedar una distribución normal...
 grid.arrange(p1, p2, p3, nrow = 1)
 p2
@@ -1083,6 +1092,11 @@ aux %>% select(Rainfall) %>%
 
 ```
 
+```{r crear variables transformadas}
+
+train_imputed$Rainfall_Inv <- 1/ (train_imputed$Rainfall + 1)
+test_imputed$Rainfall_Inv <- 1/ (test_imputed$Rainfall + 1)
+```
 Con esta informacion podemos concluir que para transformarla lo mejor que podemos hacer es utilizar la inversa sin tener en cuenta los ceros de la variable rainfall, que equivaldrian a un "No" en la variable RainToday
 
 
@@ -1118,10 +1132,6 @@ dim(test_imputed)
 train_imputed %>%
   summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
   t()
-
-test_imputed %>%
-  summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
-  t()
 ```
 
 
@@ -1137,23 +1147,23 @@ test_imputed %>%
 
 El modelo utilizado es una regresion logistica, sacamos los valores de la recta para cada variable mediante lasso
 
-###Estandarización:
+### Estandarización:
+Aplicamos la estandarización con las medias y varianzas de train.
 
-```{r model}
-
-
-
+```{r estandarizacion}
 #Estandarización
 numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
                   "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
-                  "Pressure3pm" , "Temp9am", "Temp3pm", "RISK_MM")
+                  "Pressure3pm" , "Temp9am", "Temp3pm", "Rainfall_inv")
 
 preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
 train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
 
 #Aplicamos la estandarización con las medias y varianzas de train
 test_imputed[numeric_vars] <- predict(preprocessParams, test_imputed[numeric_vars])
-
+```
+Creación variables dummies para `Location`, `Season`, `WindGustDir` y borrado de las anteriores.
+```{r variables dummies}
 #Procesado de variables cualitativas: creación variables dummies
 train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
 test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
@@ -1171,10 +1181,10 @@ test_imputed$Date <- NULL
 test_imputed$WindGustDir <- NULL
 test_imputed$WindDir3pm_NA <- NULL
 test_imputed$WindDir9am_NA <- NULL
+```
 
-
-#Selección de variables 
-
+### Selección de variables usando Lasso
+```{r variables lasso}
 train_imputed_sinNA = na.omit(train_imputed)
 x_train = train_imputed_sinNA[, !names(train_imputed_sinNA) %in% c("RainTomorrow")] 
 
@@ -1203,8 +1213,12 @@ c<-coef(lasso_best,s=best_lam,exact=TRUE)
 inds<-which(c!=0)
 variables<-row.names(c)[inds]
 variables
+```
 
 
+### Modelo usando las variables Lasso
+
+```{r modelo1}
 new_train = train_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S",      
                                            "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday",          
                                            "Location_Adelaide", "Location_Sydney", "Season_summer","WindGustDir_ENE", "WindGustDir_NNW",   
@@ -1241,5 +1255,4 @@ glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
 glm_test <- factor(glm_test, levels = c(0,1))
 tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
-
 ```
