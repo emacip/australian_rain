@@ -2,13 +2,20 @@
 title: "Lluvia en Australia"
 author: "Adrian Romero Hernandez, Enrique Macip Belmonte, Maria Ruiz Teixidor"
 date: "19 de diciembre de 2019"
-output:
-  html_document: default
-  pdf_document: default
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+      section_divs: true
+    theme: "sandstone"
+    highlight: "zenburn"
+    code_folding: "hide"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE,message=FALSE,warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE,message=FALSE,warning=FALSE)
 ```
 
 ## Introduccion
@@ -28,9 +35,9 @@ Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos 
  -Utilizar la variable temporal de alguna forma, ya que considerabamos que tenia importancia pero no podiamos usar cada dia del año como un dato diferente, por lo que decidimos obtener apartir de la fecha la estacion del año en la que estaba cada linea,
 
 
-```{r librerias y seed, include=FALSE}
-library(ggplot2)< 
 
+```{r librerias y seed, echo = FALSE, include=FALSE}
+library(ggplot2)
 library(dplyr)
 library(tidyverse)
 library(VIM)
@@ -59,7 +66,8 @@ library(corrplot)
 
 set.seed(123)
 ```
-```{r Dataset train y test, include=FALSE}
+
+```{r Dataset train y test, include=FALSE, echo=FALSE}
 
 weatherAUS <- read_csv("weatherAUS_2.csv")
 
@@ -75,8 +83,12 @@ validation <- temp[-test_val_ind, ]
 medidas_dispersion<-function(x) {
   return(list('rango'= range(x), 'Varianza'= var(x), 'Desciación_tipica'= sd(x)))}
 
+
 ```
 
+```{r summary}
+summary(train)
+```
 ## Variables
 
 Analizamos las variables individuales por separado con distintos graficos.
@@ -912,7 +924,6 @@ lines(density(train_imputed$Rainfall),col=3)
 ```
 
 Resto de Variables correladas para impulación de nulos
-
 
 ```{r imputacion humidity2}
 #Variables Humidity9am & Rainfall: método: imputación simple: KNN

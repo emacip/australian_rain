@@ -3,7 +3,7 @@
 #Estandarización
 numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
                   "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
-                  "Pressure3pm" , "Temp9am", "Temp3pm", "RISK_MM")
+                  "Pressure3pm" , "Temp9am", "Temp3pm", "RISK_MM", "AvgTemp", "temp", "press")
 
 preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
 train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
@@ -40,11 +40,25 @@ y_test = test_imputed_sinNA$RainTomorrow
 dim(test_imputed_sinNA)
 dim(train_imputed_sinNA)
 
+#Primero vemos Lasso
+x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
 
-new_train = train_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
-                                           "RainTomorrow")
-new_test = test_imputed_sinNA %>% select("MaxTemp","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
-                                         "RainTomorrow")
+lambda_seq <- 10^seq(2, -2, by = -.1)
+cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
+plot(cv.out)
+# identifying best lamda
+best_lam <- cv.out$lambda.min
+lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
+
+c<-coef(lasso_best,s=best_lam,exact=TRUE)
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
+variables
+
+new_train = train_imputed_sinNA %>% select("MaxTemp","Sunshine","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
+                                           "Cloud3pm","Season_spring","RainTomorrow")
+new_test = test_imputed_sinNA %>% select("MaxTemp","Sunshine","RainToday","WindGustSpeed", "Humidity3pm", "Pressure3pm",
+                                         "Cloud3pm","Season_spring","RainTomorrow")
 
 
 weatherAUSCorr <- new_train %>% select(MaxTemp, RainToday, WindGustSpeed, Humidity3pm, Pressure3pm, RainTomorrow) %>% na.omit()
