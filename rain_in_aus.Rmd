@@ -14,20 +14,20 @@ output:
     code_folding: "hide"
 ---
 
-## Introducción
+## Introducción y definición de objetivos 
 
 Los datos obtenidos de Kaggle tienen la información atmosférica de varios años en Australia, datos en los que viene incluida desde la velocidad del viento hasta la temperatura, en total 23 variables recogidas durante varios años en distintas ciudades de Australia con las que se obtienen un dataset de 140.000 líneas aproximadamente.
 
-Nuestro objetivo será predecir la lluvia del día siguiente con los datos metereológicos del día.
+Nuestro objetivo será predecir la lluvia del día siguiente a partir los datos metereológicos del día (vamos a realizar una regresión logística). Nos interesará tener una matriz de confusión dónde los verdaderos positivos y los verdaderos negativos sean altos. Sobretodo nos interesará que los verdaderos positivos, es decir predecir que llueve el día siguiente, lo predice bien el modelo. 
 
-```{r estudio dataset, include=FALSE}
-# TODO Necesario revisar
-```
+Además, no sólo nos interesa predecir bien si llueve o no el siguiente día, sino entender bien qué factores metereológicos tienen más influencia en la respuesta final. Cómo afecta cada uno de ellos según si su valor aumenta o disminuye.
+
 Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos cosas:
- 
-1. Utilizar una zona concreta de Australia, sacada de la variable localización, de la cual elegimos 4 ciudades situadas en la costa sureste de Australia.
- 
+  
+  1. Utilizar una zona concreta de Australia, sacada de la variable localización, de la cual elegimos 4 ciudades situadas en la costa sureste de Australia.
+
 2. Utilizar la variable temporal de alguna forma, ya que considerabamos que tenía importancia pero no podíamos usar cada día del año como un dato diferente, por lo que decidimos obtener a partir de la fecha la estación del año en la que estaba cada línea.
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
