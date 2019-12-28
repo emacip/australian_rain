@@ -589,8 +589,11 @@ press9 <- boxplot_vars(train$Pressure9am, "Pressure9am")
 press3 <- boxplot_vars(train$Pressure3pm, "Pressure3pm")
 humidity9 <- boxplot_vars(train$Humidity9am, "Humiditye9am")
 humidity3 <- boxplot_vars(train$Humidity3pm, "Humidity3pm")
-plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, humidity9, humidity3, nrow = 4, ncol = 2)
+windspeed9 <- boxplot_vars(train$WindSpeed9am, "WindSpeed9am")
+windspeed3 <- boxplot_vars(train$WindSpeed3pm, "WindSpeed3pm")
+plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, humidity9, humidity3, windspeed9, windspeed3, nrow = 5, ncol = 2)
 ```
+
 
 Ahora crearemos unas nuevas varibles combinándolas entre sí.
 Las usaremos en el modelo más adelante para ajustarlo.
@@ -601,20 +604,24 @@ train$AvgTemp <- round(rowMeans(train[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digi
 train$Temp <- round(rowMeans(train[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
 train$Pressure <- round(rowMeans(train[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
 train$Humidity <- round(rowMeans(train[c('Humidity9am', 'Humidity3pm')], na.rm=TRUE),digits=2)
+train$WindSpeed <- round(rowMeans(train[c('WindSpeed9am', 'WindSpeed3pm')], na.rm=TRUE),digits=2)
 
 #Test
 test$AvgTemp <- round(rowMeans(test[c('MinTemp', 'MaxTemp')], na.rm=TRUE),digits=2)
 test$Temp <- round(rowMeans(test[c('Temp9am', 'Temp3pm')], na.rm=TRUE),digits=2)
 test$Pressure <- round(rowMeans(test[c('Pressure9am', 'Pressure3pm')], na.rm=TRUE),digits=2)
 test$Humidity <- round(rowMeans(test[c('Humidity9am', 'Humidity3pm')], na.rm=TRUE),digits=2)
+test$WindSpeed <- round(rowMeans(test[c('WindSpeed9am', 'WindSpeed3pm')], na.rm=TRUE),digits=2)
+
 
 AvgTemp <- boxplot_vars(train$AvgTemp, "AvgTemp")
 temp <- boxplot_vars(train$Temp, "Temp")
 press <- boxplot_vars(train$Pressure, "press")
 humidity <- boxplot_vars(train$Humidity, "Humidity")
+wind_speed <- boxplot_vars(train$WindSpeed, "WindSpeed")
 
 
-plot_grid(AvgTemp, temp, press, humidity, nrow = 4, ncol = 1)
+plot_grid(AvgTemp, temp, press, humidity,wind_speed, nrow = 5, ncol = 1)
 
 ```
 
@@ -1088,7 +1095,10 @@ El resto de nulos los eliminamos por ser un pequeño porcentaje.
 Aplicamos la estandarización con las medias y varianzas de train.
 ```{r estandarizacion}
 #Estandarización
-numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" , "Pressure3pm" , "Temp9am", "Temp3pm", "Rainfall_inv")
+
+numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
+                  "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
+                  "Pressure3pm" , "Temp9am", "Temp3pm", "Rainfall_Inv")
 
 preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
 train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
@@ -1107,6 +1117,9 @@ train_imputed$Location <- NULL
 train_imputed$Season <- NULL
 train_imputed$Date <- NULL
 train_imputed$WindGustDir <- NULL
+train_imputed$RISK_MM <- NULL
+
+
 
 test_imputed$Location <- NULL
 test_imputed$Season <- NULL
@@ -1114,6 +1127,7 @@ test_imputed$Date <- NULL
 test_imputed$WindGustDir <- NULL
 test_imputed$WindDir3pm_NA <- NULL
 test_imputed$WindDir9am_NA <- NULL
+test_imputed$RISK_MM <- NULL
 ```
 
 ### Selección de variables usando Lasso
@@ -1197,6 +1211,7 @@ tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
 ```
 
+
 Observando la matriz de confusión se puede ver que el modelo no obtiene buenos resultados pues el número de falsos positivos es muy alto y casi igual al de verdaderos positivos. Por lo que el modelo predice bien cuando no llueve pero no acaba de predecir bien cuando sí va a llover.
 
 Probamos otros modelos para ver si el resultado mejora.
@@ -1204,3 +1219,114 @@ Probamos otros modelos para ver si el resultado mejora.
 ## Modelo 2: selección con Lasso sobre el dataset con interacción de variables.
 
 Como hay muchas variables que están muy relacionadas entre ellas probamos a combinarlas para introducirlas al modelo y que de esta manera no se pierda información.
+
+Para este nuevo modelo usaremos las nuevas variables AvgTemp, Temp, Pressure, Humidity creadas de las medias de las variables a las 9am y a las 3pm. 
+
+```{r estandarizacion new var}
+#Estandarización
+numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
+                  "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am",
+                  "Pressure3pm", "Temp9am", "Temp3pm", "Rainfall_Inv", "AvgTemp", "Temp", "Pressure", "Humidity", "WindSpeed" )
+
+preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
+train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
+
+#Aplicamos la estandarización con las medias y varianzas de train
+test_imputed[numeric_vars] <- predict(preprocessParams, test_imputed[numeric_vars])
+```
+
+```{r eleminar variables combinatorias}
+
+
+train_imputed$WindSpeed9am <- NULL
+train_imputed$WindSpeed3pm <- NULL
+train_imputed$Humidity9am <- NULL
+train_imputed$Humidity3pm <- NULL
+train_imputed$MinTemp <- NULL
+train_imputed$MaxTemp <- NULL
+train_imputed$Pressure9am <- NULL
+train_imputed$Pressure3pm <- NULL
+train_imputed$Temp9am <- NULL
+train_imputed$Temp3pm <- NULL
+
+
+test_imputed$WindSpeed9am <- NULL
+test_imputed$WindSpeed3pm <- NULL
+test_imputed$Humidity9am <- NULL
+test_imputed$Humidity3pm <- NULL
+test_imputed$MinTemp <- NULL
+test_imputed$MaxTemp <- NULL
+test_imputed$Pressure9am <- NULL
+test_imputed$Pressure3pm <- NULL
+test_imputed$Temp9am <- NULL
+test_imputed$Temp3pm <- NULL
+```
+
+### Selección de variables usando Lasso
+```{r variables lasso new var}
+train_imputed_sinNA = na.omit(train_imputed)
+x_train = train_imputed_sinNA[, !names(train_imputed_sinNA) %in% c("RainTomorrow")] 
+
+y_train = train_imputed_sinNA$RainTomorrow
+
+test_imputed_sinNA = na.omit(test_imputed)
+x_test = test_imputed_sinNA[, !names(test_imputed_sinNA) %in% c("RainTomorrow")] 
+y_test = test_imputed_sinNA$RainTomorrow
+
+dim(test_imputed_sinNA)
+dim(train_imputed_sinNA)
+
+
+#Primero vemos Lasso
+x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
+
+lambda_seq <- 10^seq(2, -2, by = -.1)
+cv.out <- cv.glmnet(x, y_train, alpha = 1, lambda = lambda_seq)
+
+plot(cv.out)
+# identifying best lamda
+best_lam <- cv.out$lambda.min
+lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
+
+c<-coef(lasso_best,s=best_lam,exact=TRUE)
+inds<-which(c!=0)
+variables<-row.names(c)[inds]
+variables
+
+
+new_train = train_imputed_sinNA %>% select("AvgTemp", "Temp", "Pressure", "Humidity", "WindSpeed", "RainTomorrow") 
+  
+
+new_test = test_imputed_sinNA %>% select("AvgTemp", "Temp", "Pressure", "Humidity", "WindSpeed", "RainTomorrow")
+
+
+
+
+#Modelo
+#Entrenamiento
+glm_model_train = glm(RainTomorrow~ ., data=new_train, family= binomial)
+
+#Test
+glm_test = predict(glm_model_train, newdata = new_test, type = "response")
+
+#Evaluación modelo
+
+#Summary
+summary(glm_model_train)
+#Tabla de ganancia
+logistic_gains_table <- blr_gains_table(glm_model_train, data = new_train)
+#Curva ROC
+blr_roc_curve(logistic_gains_table)
+#Matriz de confusión
+
+umbral_dec = 0.46
+glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
+glm_test <- factor(glm_test, levels = c(0,1))
+tabla_conf <- table(glm_test, new_test$RainTomorrow)
+caret::confusionMatrix(tabla_conf, positive = '1')
+```
+
+
+
+
+
