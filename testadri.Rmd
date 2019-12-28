@@ -1,0 +1,520 @@
+---
+title: "Lluvia en Australia"
+author: "Adrian Romero Hernandez, Enrique Macip Belmonte, Maria Ruiz Teixidor"
+date: "19 de diciembre de 2019"
+output:
+html_document: default
+pdf_document: default
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE,warning=FALSE)
+```
+
+
+
+
+```{r librerias y seed, include=FALSE}
+library(ggplot2)
+  
+library(dplyr)
+library(tidyverse)
+library(VIM)
+library(wesanderson)
+library(GGally)
+library(corrplot)
+library(mice)
+library(egg)
+library(kableExtra)
+library(car)
+library(fastDummies)
+library(caret)
+library(glmnet)
+library(blorr)
+library(magrittr)
+library(tidyr)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+library(VIM)
+library(visdat)
+library(naniar)
+library(caTools)
+library(corrplot)
+
+
+set.seed(123)
+```
+
+```{r Dataset train y test, include=FALSE}
+
+weatherAUS <- read_csv("weatherAUS_2.csv")
+
+
+train_ind <- sample(seq_len(nrow(weatherAUS)), size = 0.80 * nrow(weatherAUS))
+train <- weatherAUS[train_ind, ]
+temp <- weatherAUS[-train_ind, ]
+test_val_ind<- sample(seq_len(nrow(temp)), size = 0.50 * nrow(temp))
+test <- temp[test_val_ind, ]
+validation <- temp[-test_val_ind, ]
+```
+
+
+## Imputacion de datos faltantes
+
+Vamos a realizar un estudio de los datos faltantes para después imputarlos utilizando las tecnicas junto al resto de parametros.
+
+Para analizar los posibles datos faltantes y las relaciones utilizamos dos bibliotecas, visdat y naniar.
+Con la base de datos de train vemos como se reparten los datos faltantes
+
+```{r visualitation data}
+vis_dat(train)
+(cols_withNa <- apply(train, 2, function(x) sum(is.na(x))))
+```
+Con estos Datos podemos deducir que las variables con mas datos faltantes serian (de mas a menos datos faltantes):
+  - Cloud3pm
+  - Cloud9am
+  - Sunshine
+  - Evaporation
+  - WindGustDir
+  - WindGustSpeed
+  - WindDir9am
+  
+  
+Con estos datos vamos a estudiar cuales son las variables con mas relaciones de los valores faltantes
+
+```{r visualitation data 2}
+gg_miss_upset(train)
+```
+
+
+Con esta grafica podemos observar que los datos faltantes mas relaccionados son sobretodo Cloud3pm y Cloud9am, esto puede deberse a que estas variables son categoricas y no pueden medirse directamente, ya que necesitan de la evaluacion del cielo en ese dia y esto puede que este automatizado.
+
+A estas variables se le suman las variables Evaporation y Sunshine, que tambien estan relaccionadas tanto entre si como con las mencionadas anteriormente.
+
+Por ultimo recalcar que la Variable WindGustDir tiene muchos datos faltantes en los que no tiene relacion con las antes mencionadas. Esto puede deberse a que miden cosas completamente diferentes y no necesariamente dependen de las otras.
+
+Con todos estos datos y el EDA con el que hemos empezado podemos comenzar a imputar datos faltantes:
+
+Las primeras variables que vamos a evaluar para completar sus datos faltantes son aquellas variables numericas que se miden en dos momentos del dia, esto nos puede ayudar para completar una con la otra ya que en gran medida estas variables son bastannte dependientes y podemos sacar una buena correlacion para completar una con la otra.
+
+
+Para esto utilizaremos el metodo de imputacion KNN, con estos datos consideramos que se pueden completar perfectamente estos valores faltantes.
+
+Variables Temp9am & Temp3pm: 
+```{r imputacion1}
+#Variables Temp9am & Temp3pm: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Temp9am, Temp3pm) %>% marginplot()
+```
+
+Viendo esta grafica podemos decir que tiene sentido utilizar la imputacion mediante KNN.
+
+```{r imputacion11}
+#Posible imputación simple mediante un algoritmo de clustering k-NN (con la función VIM:kNN)
+#Parece que tiene sentido:
+train %>% select(Temp9am, Temp3pm) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train_imputed, variable=c("Temp9am","Temp3pm"))
+test_imputed <- kNN(test_imputed, variable=c("Temp9am","Temp3pm"))
+
+```
+
+Comprobamos si nuestra muestra inicial modifica su densidad para asegurarnos de que esta imputacion funciona y no hemos generado ningun valor que no coincida.
+
+```{r imputacion2}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Temp9am, na.rm = T), col=2, main="Temp9am")
+lines(density(train_imputed$Temp9am), col=3)
+plot(density(train$Temp3pm, na.rm = T), col=2, main="Temp3pm")
+lines(density(train_imputed$Temp3pm), col=3) 
+```
+
+Como podemos comprobar, apenas se aprecia la linea roja que esta debajo de la densidad inicial por lo que podemos decir que no cambia 
+
+
+Variables MinTemp & MaxTemp:
+```{r imputacion22}
+#Variables MinTemp & MaxTemp: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(MinTemp, MaxTemp) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(MinTemp, MaxTemp) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train, variable=c("MaxTemp","MinTemp"))
+test_imputed <- kNN(test, variable=c("MaxTemp","MinTemp"))
+```
+```{r imputacion5}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$MaxTemp,na.rm = T),col=2,main="MaxTemp")
+lines(density(train_imputed$MaxTemp),col=3)
+plot(density(train$MinTemp,na.rm = T),col=2,main="MinTemp")
+lines(density(train_imputed$MinTemp),col=3)
+```
+En este caso la imputacion de datos faltantes tambien funciona
+
+Variables Pressure9am & Pressure3pm:
+```{r imputacion humidity2}
+#Variables Pressure3pm & Pressure9am: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Pressure3pm, Pressure9am) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(Pressure3pm, Pressure9am) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train_imputed, variable=c("Pressure3pm","Pressure9am"))
+test_imputed <- kNN(test_imputed, variable=c("Pressure3pm","Pressure9am"))
+
+```
+```{r imputacion4.5}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Pressure3pm,na.rm = T),col=2,main="Pressure3pm")
+lines(density(train_imputed$Pressure3pm),col=3)
+plot(density(train$Pressure9am,na.rm = T),col=2,main="Pressure9am")
+lines(density(train_imputed$Pressure9am),col=3)
+```
+Podemos utilizar esta imputacion en la presion.
+
+Variables Humidity9am & Humidity3pm:
+```{r imputacion humidity1.5}
+#Variables Humidity9am & Humidity3pm: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Humidity3pm, Humidity9am) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(Humidity3pm, Humidity9am) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train_imputed, variable=c("Humidity3pm","Humidity9am"))
+test_imputed <- kNN(test_imputed, variable=c("Humidity3pm","Humidity9am"))
+
+```
+```{r imputacion4.6}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Humidity3pm,na.rm = T),col=2,main="Humidity3pm")
+lines(density(train_imputed$Humidity3pm),col=3)
+plot(density(train$Humidity9am,na.rm = T),col=2,main="Humidity9am")
+lines(density(train_imputed$Humidity9am),col=3)
+```
+Podemos utilizar esta imputacion en la humedad.
+
+
+
+Variables Rainfall & Raintoday:
+Podriamos pensar que estas dos variables van de la mano, ya que si la premisa se cumple, cuando la variable Rainfall es 0 es que ese mismo dia no ha llovido, por ello haremos un estudio de los datos faltantes.
+```{r imputacion faltantes RainToday y Rainfall}
+trainSelect2 <- train %>% select(RainToday, Rainfall)
+gg_miss_upset(trainSelect2)
+```
+Esto quiere decir que los datos faltantes son exactamente los mismos, por lo que vamos a proceder a completar los datos faltantes de la variable rainfall y con ellos completaremos los datos de Raintoday.
+
+
+
+
+Otras variables que puede tener sentido relacionar es la cantidad de lluvia con la humedad.
+
+Variables Humidity9am & Rainfall:
+```{r imputacion humidity}
+#Variables Humidity9am & Rainfall: método: imputación simple: KNN
+par(mfrow=c(1,1))
+train %>% select(Humidity9am, Rainfall) %>% marginplot()
+#Parece que tiene sentido:
+train %>% select(Humidity9am, Rainfall) %>% VIM::kNN() %>% marginplot(., delimiter="_imp")
+train_imputed <- kNN(train_imputed, variable=c("Humidity9am","Rainfall"))
+test_imputed <- kNN(test_imputed, variable=c("Humidity9am","Rainfall"))
+
+
+
+```
+
+```{r imputacion4}
+#Comprobaciones:
+par(mfrow=c(1,2))
+plot(density(train$Humidity9am,na.rm = T),col=2,main="Humidity9am")
+lines(density(train_imputed$Humidity9am),col=3)
+plot(density(train$Rainfall,na.rm = T),col=2,main="Rainfall")
+lines(density(train_imputed$Rainfall),col=3)
+
+# Checkea numero de NA
+(cols_withNa <- apply(train_imputed, 2, function(x) sum(is.na(x))))
+```
+
+Ahora que ya hemos logrado imputar la variable de Rainfall la utilizaremos para conseguir los datos faltantes de raintoday:
+```{r imputacion9}
+train_imputed$RainToday[which(is.na(train_imputed$RainToday))] <- ifelse(train_imputed$Rainfall == 0, "No", "Yes")
+test_imputed$RainToday[which(is.na(test_imputed$RainToday))] <- ifelse(test_imputed$Rainfall == 0, "No", "Yes")
+
+```
+
+Variables Cloud3pm & Cloud9am:
+Para estas variable sutilizamos la libreria mice con el metodo de la imputacion multiple y comprobamos que no varia la densidad de los valores
+
+```{r imputacion Clouds2}
+par(mfrow=c(1,1))
+train_imputed0 <- mice(train_imputed[,c('Cloud3pm','Cloud9am')], seed=2018, print = F, m = 30)
+train_imputed1 <- mice::complete(train_imputed0)
+test_imputed0 <- mice(test_imputed[,c('Cloud3pm','Cloud9am')], seed=2018, print = F, m = 30)
+test_imputed1 <- mice::complete(test_imputed0)
+xyplot(train_imputed0, Cloud3pm ~Cloud9am)
+
+par(mfrow=c(1,2))
+plot(density(train$Cloud3pm,na.rm = T),col=2,main="Cloud3pm")
+lines(density(train_imputed1$Cloud3pm),col=3)
+plot(density(train$Cloud9am,na.rm = T),col=2,main="Cloud9am")
+lines(density(train_imputed1$Cloud9am),col=3)
+
+train_imputed$Cloud3pm <- train_imputed1$Cloud3pm
+train_imputed$Cloud9am <- train_imputed1$Cloud9am
+test_imputed$Cloud3pm <- test_imputed1$Cloud3pm
+test_imputed$Cloud9am <- test_imputed1$Cloud9am
+```
+
+
+Variable Evaporation:
+
+En esta Varible utilizaremos la media de cada estacion y con esto sustituiremos los valores faltantes.
+
+
+```{r Evaporation5}
+summer <- filter(train, Season == "summer")
+evaporationMeanSummer <- mean(summer$Evaporation,na.rm = TRUE)
+winter <- filter(train, Season == "winter")
+evaporationMeanWinter <- mean(winter$Evaporation,na.rm = TRUE)
+spring <- filter(train, Season == "spring")
+evaporationMeanSpring <- mean(spring$Evaporation,na.rm = TRUE)
+fall <- filter(train, Season == "fall")
+evaporationMeanFall <- mean(fall$Evaporation,na.rm = TRUE)
+
+evaporationMeanSummer
+evaporationMeanSpring
+evaporationMeanFall
+evaporationMeanWinter
+```
+
+Aqui podemos observar como la variable de evaporacion varia bastante en funcion de la epoca del año, en este caso por orden tenemos Verano, Primavera, Otoño e Invierno de mayor a menor, como en el resto de datos de esta variable solo utiliza un decimal haremos lo mismo para nuestras imputaciones.
+
+```{r Evaporation2}
+
+evaporationMeanSummer <- round(evaporationMeanSummer,1)
+evaporationMeanSpring <- round(evaporationMeanSpring,1)
+evaporationMeanFall <- round(evaporationMeanFall,1)
+evaporationMeanWinter <- round(evaporationMeanWinter,1)
+
+evaporationMeanSummer
+evaporationMeanSpring
+evaporationMeanFall
+evaporationMeanWinter
+
+```
+```{r Evaporation3}
+train_imputed$Evaporation[which(is.na(train_imputed$Evaporation))] <- ifelse(train_imputed$Season == "summer", evaporationMeanSummer,
+                                                                      ifelse(train_imputed$Season == "winter", evaporationMeanWinter,
+                                                                      ifelse(train_imputed$Season == "spring", evaporationMeanSpring,
+                                                                      ifelse(train_imputed$Season == "fall", evaporationMeanFall,
+                                                                      0))))
+test_imputed$Evaporation[which(is.na(test_imputed$Evaporation))] <- ifelse(test_imputed$Season == "summer", evaporationMeanSummer,
+                                                                      ifelse(test_imputed$Season == "winter", evaporationMeanWinter,
+                                                                      ifelse(test_imputed$Season == "spring", evaporationMeanSpring,
+                                                                      ifelse(test_imputed$Season == "fall", evaporationMeanFall,
+                                                                      0))))
+```
+
+Variable Sunshine:
+
+En esta Varible tambien utilizaremos la media de cada estacion y con esto sustituiremos los valores faltantes.
+
+
+```{r Sunshine}
+SunshineMeanSummer <- mean(summer$Sunshine,na.rm = TRUE)
+SunshineMeanWinter <- mean(winter$Sunshine,na.rm = TRUE)
+SunshineMeanSpring <- mean(spring$Sunshine,na.rm = TRUE)
+SunshineMeanFall <- mean(fall$Sunshine,na.rm = TRUE)
+
+SunshineMeanSummer
+SunshineMeanSpring
+SunshineMeanFall
+SunshineMeanWinter
+```
+
+Aqui podemos observar como la variable de Sunshine varia bastante en funcion de la epoca del año, en este caso por orden tenemos Verano, Primavera, Otoño e Invierno de mayor a menor, como en el resto de datos de esta variable solo utiliza un decimal haremos lo mismo para nuestras imputaciones.
+
+```{r Sunshine2}
+
+SunshineMeanSummer <- round(SunshineMeanSummer,1)
+SunshineMeanSpring <- round(SunshineMeanSpring,1)
+SunshineMeanFall <- round(SunshineMeanFall,1)
+SunshineMeanWinter <- round(SunshineMeanWinter,1)
+
+SunshineMeanSummer
+SunshineMeanSpring
+SunshineMeanFall
+SunshineMeanWinter
+
+```
+```{r Sunshine3}
+train_imputed$Sunshine[which(is.na(train_imputed$Sunshine))] <- ifelse(train_imputed$Season == "summer", SunshineMeanSummer,
+                                                                      ifelse(train_imputed$Season == "winter", SunshineMeanWinter,
+                                                                      ifelse(train_imputed$Season == "spring", SunshineMeanSpring,
+                                                                      ifelse(train_imputed$Season == "fall", SunshineMeanFall,
+                                                                      0))))
+
+test_imputed$Sunshine[which(is.na(test_imputed$Sunshine))] <- ifelse(test_imputed$Season == "summer", SunshineMeanSummer,
+                                                                      ifelse(test_imputed$Season == "winter", SunshineMeanWinter,
+                                                                      ifelse(test_imputed$Season == "spring", SunshineMeanSpring,
+                                                                      ifelse(test_imputed$Season == "fall", SunshineMeanFall,
+                                                                      0))))
+```
+
+
+
+
+Variables WindDir & WindSpeed:
+Para imputar los datos faltantes en la direccion del viento y en la velocidad utilizaremos la velocidad media que hemos obtenido antes en funcion de la direccion que tenia el aire a esa misma hora, asi nos aseguramos de dar un valor mas acorde a la realidad con los datos de los que disponemos.
+
+Para ello primero tenemos que hacer un estudio de las variables y sus datos faltantes
+
+
+```{r imputacion faltantes windir y winspeed}
+trainSelect <- train %>% select(WindDir9am, WindDir3pm, WindSpeed9am,WindSpeed3pm)
+gg_miss_upset(trainSelect)
+```
+
+Con esta informacion podemos concluir que los datos que mas faltan son los de la mañana y destacando los datos de la direccion a las 9 de la mañana. Teniendo en cuenta que en el caso de WindDir3pm, WindSpeed9am, WindSpeed3pm, la mayoria de datos NA corresponden con valores faltantes en los demas valores no seremos capaces de imputar dichos valores con estos datos.
+
+
+
+```{r imputacion dirspeed}
+test <- train %>%
+  group_by(WindDir9am) %>%
+  summarize(avg_WindSpeed9am = mean(WindSpeed9am))
+test
+```
+
+para poder completar todos los valores vamos a imputar datos en la velocidad del viento. Para ello haremos uso del mice con el que gracias a los valores de la presion a la misma hora imputaremos los valores faltantes.
+
+
+```{r imputacion Clouds}
+par(mfrow=c(1,1))
+train_imputed0 <- mice(train_imputed[,c('Pressure9am','WindSpeed9am')], seed=2018, print = F, m = 30)
+train_imputed1 <- mice::complete(train_imputed0)
+test_imputed0 <- mice(test_imputed[,c('Pressure9am','WindSpeed9am')], seed=2018, print = F, m = 30)
+test_imputed1 <- mice::complete(test_imputed0)
+xyplot(train_imputed0, Pressure9am ~WindSpeed9am)
+
+par(mfrow=c(1,1))
+train_imputed2 <- mice(train_imputed[,c('Pressure3pm','WindSpeed3pm')], seed=2018, print = F, m = 30)
+train_imputed3 <- mice::complete(train_imputed2)
+test_imputed2 <- mice(test_imputed[,c('Pressure3pm','WindSpeed3pm')], seed=2018, print = F, m = 30)
+test_imputed3 <- mice::complete(test_imputed2)
+xyplot(train_imputed2, Pressure3pm ~WindSpeed3pm)
+
+par(mfrow=c(1,2))
+plot(density(train$WindSpeed9am,na.rm = T),col=2,main="WindSpeed9am")
+lines(density(train_imputed1$WindSpeed9am),col=3)
+plot(density(train$WindSpeed3pm,na.rm = T),col=2,main="WindSpeed3pm")
+lines(density(train_imputed3$WindSpeed3pm),col=3)
+
+
+train_imputed$WindSpeed9am <- train_imputed1$WindSpeed9am
+train_imputed$WindSpeed3pm <- train_imputed3$WindSpeed3pm
+test_imputed$WindSpeed9am <- test_imputed1$WindSpeed9am
+test_imputed$WindSpeed3pm <- test_imputed3$WindSpeed3pm
+```
+
+
+
+
+
+
+```{r Evaporation}
+
+
+```
+
+
+
+Transformaciones de variables cualitativas
+```{r Eliminar imputaciones }
+train_imputed[c("Temp9am_imp","Temp3pm_imp" ,"Pressure9am_imp","Pressure3pm_imp","MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Humidity3pm_imp","Rainfall_imp")] <- list(NULL)
+test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"Pressure9am_imp","Pressure3pm_imp","MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Humidity3pm_imp","Rainfall_imp")] <- list(NULL)
+```
+
+```{r cualitativas }
+train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm","RainToday","RainTomorrow"))
+test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm","RainToday","RainTomorrow"))
+```
+
+
+
+Transformaciones de variables cuantitativas
+La única que no parece seguir una distribución normal es la variable RainFall
+
+```{r cualitativas }
+p1 <- train_imputed %>% select(Rainfall, Season) %>%
+  na.omit() %>%
+  ggplot(aes(x=Rainfall, colour=Season)) +
+  geom_density()
+#(train_imputed$Rainfall)+0.01
+aux <- filter(train_imputed,train_imputed$Rainfall>0)
+p2 <- aux %>% mutate(inv_Rainfall = 1/ (Rainfall)) %>%
+  select(Season, inv_Rainfall) %>%
+  na.omit() %>%
+  ggplot(aes(x=inv_Rainfall, colour=Season)) +
+  geom_density()
+
+p3 <- train_imputed %>% mutate(log10_Rainfall = log10(Rainfall + 0.01)) %>%  #+ 1.01
+  select(Season, log10_Rainfall) %>%
+  na.omit() %>%
+  ggplot(aes(x=log10_Rainfall, colour=Season)) +
+  geom_density()
+
+hist(train_imputed$Rainfall)
+hist(log10(train_imputed$Rainfall))
+hist(log10(train_imputed$Rainfall) + 1)
+#Sigue sin quedar una distribución normal...
+grid.arrange(p1, p2, p3, nrow = 1)
+p2
+aux %>% select(Rainfall) %>%
+  na.omit() %>%
+  symbox(~ Rainfall, data = .)
+
+```
+
+Con esta informacion podemos concluir que para transformarla lo mejor que podemos hacer es utilizar la inversa sin tener en cuenta los ceros de la variable rainfall, que equivaldrian a un "No" en la variable RainToday
+
+
+```{r Transformaciones}
+#Resto de variables: siguen distribución normal
+qqnorm(train_imputed$MinTemp, ylab="MinTemp")
+qqline(train_imputed$MinTemp, col="red")
+
+qqnorm(train_imputed$MaxTemp, ylab="MaxTemp")
+qqline(train_imputed$MaxTemp, col="red")
+
+qqnorm(train_imputed$Temp3pm, ylab="Temp3pm")
+qqline(train_imputed$Temp3pm, col="red")
+
+qqnorm(train_imputed$Temp9am, ylab="Temp9am")
+qqline(train_imputed$Temp9am, col="red")
+
+qqnorm(train_imputed$Pressure9am, ylab="Pressure9am")
+qqline(train_imputed$Pressure9am, col="red")
+
+qqnorm(train_imputed$Pressure3pm, ylab="Pressure3pm")
+qqline(train_imputed$Pressure3pm, col="red")
+
+
+dim(train_imputed)
+dim(test_imputed)
+
+```
+
+
+```{r Transformaciones}
+# check NA
+train_imputed %>%
+  summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
+  t()
+
+test_imputed %>%
+  summarise_each(list(~ sum(is.na(.)) / length(.) * 100)) %>%
+  t()
+```
+
