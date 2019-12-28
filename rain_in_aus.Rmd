@@ -242,16 +242,6 @@ Se trata de la dirección y la velocidad del viento más fuerte en las últimas 
 
 Analizamos cuatro variables que no están, a priori, relacionadas por pares.
 
-### Risk_mm
-
-```{r RISK_MM, echo=FALSE,  fig.align='center'}
-hist_RISK_MM = ggplot(train, aes(x=RISK_MM)) + geom_histogram() + ggtitle('Histograma RISK_MM')
-boxplot_RISK_MM = ggplot(train, aes(y=RISK_MM)) +  geom_boxplot(fill="white") + ggtitle('Boxplot RISK_MM')
-grid.arrange(hist_RISK_MM, boxplot_RISK_MM, nrow = 1)
-```
-
-Esta variable indica la cantidad de lluvia en mm del día siguiente, se usa para crear la variable respuesta RainTomorrow. Es como una medida de "riesgo". Es la variable que se ha usado para determinar la variable RainTomorrow.
-
 ### Rainfall
 
 ```{r Rainfall, echo=FALSE,  fig.align='center'}
