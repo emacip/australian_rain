@@ -285,7 +285,7 @@ test_imputed$RainToday[which(is.na(test_imputed$RainToday))] <- ifelse(test_impu
 
 
 
-### ariables Cloud3pm & Cloud9am:
+### Variables Cloud3pm & Cloud9am:
 Para estas variables utilizamos la libreria mice con el metodo de la imputacion multiple y comprobamos que no varia la densidad de los valores.
 
 
@@ -429,7 +429,7 @@ imputacion
 para poder completar todos los valores vamos a imputar datos en la velocidad del viento. Para ello haremos uso del mice con el que gracias a los valores de la presion a la misma hora imputaremos los valores faltantes.
 
 
-```{r imputacion Clouds}
+```{r imputacion WindSpeed3pm}
 par(mfrow=c(1,1))
 aux <- select(train_imputed,c('Pressure9am','WindSpeed9am','WindDir9am','Pressure3pm','WindSpeed3pm','WindDir3pm'))
 aux2 <- select(test_imputed,c('Pressure9am','WindSpeed9am','WindDir9am','Pressure3pm','WindSpeed3pm','WindDir3pm'))
@@ -480,10 +480,15 @@ test_imputed$WindDir3pm <- test_imputed3$WindDir3pm
 
 
 ```
+```{r imputacion WindGustSpeed}
 
+a <- data.frame(WindSpeed9am= train_imputed$WindSpeed9am, WindSpeed3pm= train_imputed$WindSpeed3pm)
+train_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- rowMeans(a, na.rm=TRUE)
 
+b <- data.frame(WindSpeed9am= test_imputed$WindSpeed9am, WindSpeed3pm= test_imputed$WindSpeed3pm)
+test_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- rowMeans(b, na.rm=TRUE)
 
-
+```
 
 
 
