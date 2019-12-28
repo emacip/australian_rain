@@ -1110,8 +1110,8 @@ test_imputed[numeric_vars] <- predict(preprocessParams, test_imputed[numeric_var
 Creación variables dummies para `Location`, `Season`, `WindGustDir` y borrado de las originales.
 
 ```{r variables dummies}
-train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
-test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
+train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", 'Season', 'WindGustDir', 'WindDir9am', 'WindDir3pm'))
+test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season', 'WindGustDir','WindDir9am', 'WindDir3pm'))
 
 train_imputed$Location <- NULL
 train_imputed$Season <- NULL
@@ -1195,14 +1195,14 @@ Vemos que las variables más significativas son los rayos de sol, la velocidad d
 
  Curva ROC del modelo
  
-```{r evaluación modelo1}
+```{r roc modelo1}
 #Curva ROC
 blr_roc_curve(logistic_gains_table)
 ```
 
 Matriz de confusión
 
-```{r evaluación modelo1}
+```{r confusion modelo1}
 #Matriz de confusión
 umbral_dec = 0.46
 glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
@@ -1326,6 +1326,9 @@ tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
 ```
 
+Vemos que utilizando la combinación de las variables no mejora el modelo. El número de falsos positivos es mayor que el de verdaderos positivos. El modelo continua prediciendo bien cuando no va a llover pero su predicción cuando llueve no es exacta.
+
+Los próximos pasos serían realizar un modelo para cada una de las ciudades estudiadas o para cada estación.
 
 
 
