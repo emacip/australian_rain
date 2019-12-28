@@ -25,6 +25,8 @@ Nuestro objetivo será predecir la lluvia del día siguiente a partir los datos 
 
 Además, no sólo nos interesa predecir bien si llueve o no el siguiente día, sino entender bien qué factores metereológicos tienen más influencia en la respuesta final. Cómo afecta cada uno de ellos según si su valor aumenta o disminuye.
 
+Para ello, antes que nada hay que entender bien las variables del dataset, qué describen, en qué rangos se mueven, sus valores atípicos y cómo se podrían transformar para poder introducirlas al modelo con la distribución óptima.
+
 Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos cosas:
   
   1. Utilizar una zona concreta de Australia, sacada de la variable localización, de la cual elegimos 4 ciudades situadas en la costa sureste de Australia.
@@ -538,6 +540,7 @@ train %>%
   summarise(avg_WindSpeed3pm = mean(WindSpeed3pm)) %>%
   ggplot(aes(x=WindDir3pm, y=avg_WindSpeed3pm, fill=RainTomorrow)) + geom_bar(stat ="identity", position = "dodge") + ggtitle("Relación entre dirección de viento y velocidad con la lluvia del día siguiente")
 ```
+
 No parece haber mucha diferencia entre la dirección del viento y la velocidad en función de si llueve o no.
 
 Añadir estos gráficos (Rainfall) después de analizar las transformaciones.
@@ -549,7 +552,7 @@ boxplot_Rainfall_season = train %>%
   mutate(test = factor(Season)) %>%
   ggplot(aes(y = 1/(Rainfall +1) , fill = test)) + 
   geom_boxplot() +
-  ggtitle('log(Rainfall + 1) - Season')
+  ggtitle('1/(Rainfall + 1) - Season')
 
 boxplot_Rainfall_location = train %>%
   mutate(test = factor(Location)) %>%
@@ -561,9 +564,9 @@ grid.arrange(boxplot_Rainfall_season, boxplot_Rainfall_location, nrow = 2)
 ```
 
 
-## Interaccion entre variables y combinacion
+## Interacción entre variables y combinaciones
 
-Se puede observar en la grafica siguiente que ninguna variable individual es mejor que otra para diferenciar si llueve o no llueve, estudiaremes `MinTemp`, `MaxTemp`, `Temp9am`, `Temp3pm`, `Pressure9am`, `Pressure3pm`, `Humidity9am`, `Humidity3pm`.
+Se puede observar en la gráfica siguiente que ninguna variable individual es mejor que otra para diferenciar si llueve o no llueve, estudiaremos `MinTemp`, `MaxTemp`, `Temp9am`, `Temp3pm`, `Pressure9am`, `Pressure3pm`, `Humidity9am`, `Humidity3pm`.
 
 ```{r interaccion, echo=FALSE,  fig.align='center'}
 
@@ -589,10 +592,8 @@ humidity3 <- boxplot_vars(train$Humidity3pm, "Humidity3pm")
 plot_grid(mintemp, maxtemp, temp9, temp3, press9, press3, humidity9, humidity3, nrow = 4, ncol = 2)
 ```
 
-
-
-Ahora crearemos unas nuevas varibles combinandolas entre si.
-Las usaremos en el modelo mas adelante para ajustarlo.
+Ahora crearemos unas nuevas varibles combinándolas entre sí.
+Las usaremos en el modelo más adelante para ajustarlo.
 
 ```{r grafico violin nuevas variables, echo=FALSE, fig.align='center'}
 
@@ -618,23 +619,11 @@ plot_grid(AvgTemp, temp, press, humidity, nrow = 4, ncol = 1)
 ```
 
 
+## Imputación de datos faltantes
 
+Vamos a realizar un estudio de los datos faltantes para después imputarlos utilizando las técnicas junto al resto de parámetros.
 
-
-
-
-
-
-
-
-
-## Imputacion de datos faltantes
-
-Vamos a realizar un estudio de los datos faltantes para después imputarlos utilizando las tecnicas junto al resto de parametros.
-
-Para analizar los posibles datos faltantes y las relaciones utilizamos dos bibliotecas, visdat y naniar.
-Con la base de datos de train vemos como se reparten los datos faltantes
-
+Para analizar los posibles datos faltantes y las relaciones utilizamos dos bibliotecas, visdat y naniar. Con la base de datos de train vemos como se reparten los datos faltantes.
 
 ```{r visualitation data}
 vis_dat(train)
@@ -645,7 +634,7 @@ vis_dat(train)
 # TODO revisar texto y poner markdown 
 ```
 
-Con estos Datos podemos deducir que las variables con mas datos faltantes serian (de mas a menos datos faltantes):
+Con estos datos podemos deducir que las variables con más datos faltantes serían (de más a menos datos faltantes):
   - Cloud3pm
   - Cloud9am
   - Sunshine
@@ -654,26 +643,23 @@ Con estos Datos podemos deducir que las variables con mas datos faltantes serian
   - WindGustSpeed
   - WindDir9am
   
-  
-Con estos datos vamos a estudiar cuales son las variables con mas relaciones de los valores faltantes
+Con estos datos vamos a estudiar cuáles son las variables con más relaciones de los valores faltantes.
 
 ```{r visualitation data 2}
 gg_miss_upset(train)
 ```
 
+Con esta gráfica podemos observar que los datos faltantes más relaccionados son sobretodo Cloud3pm y Cloud9am, esto puede deberse a que estas variables son categóricas y no pueden medirse directamente, ya que necesitan de la evaluación del cielo en ese día y esto puede que este automatizado.
 
-Con esta grafica podemos observar que los datos faltantes mas relaccionados son sobretodo Cloud3pm y Cloud9am, esto puede deberse a que estas variables son categoricas y no pueden medirse directamente, ya que necesitan de la evaluacion del cielo en ese dia y esto puede que este automatizado.
+A estas variables se le suman las variables Evaporation y Sunshine, que también están relaccionadas tanto entre sí como con las mencionadas anteriormente.
 
-A estas variables se le suman las variables Evaporation y Sunshine, que tambien estan relaccionadas tanto entre si como con las mencionadas anteriormente.
-
-Por ultimo recalcar que la Variable WindGustDir tiene muchos datos faltantes en los que no tiene relacion con las antes mencionadas. Esto puede deberse a que miden cosas completamente diferentes y no necesariamente dependen de las otras.
+Por último recalcar que la variable WindGustDir tiene muchos datos faltantes en los que no tiene relación con las antes mencionadas. Esto puede deberse a que miden cosas completamente diferentes y no necesariamente dependen de las otras.
 
 Con todos estos datos y el EDA con el que hemos empezado podemos comenzar a imputar datos faltantes:
 
-Las primeras variables que vamos a evaluar para completar sus datos faltantes son aquellas variables numericas que se miden en dos momentos del dia, esto nos puede ayudar para completar una con la otra ya que en gran medida estas variables son bastannte dependientes y podemos sacar una buena correlacion para completar una con la otra.
+Las primeras variables que vamos a evaluar para completar sus datos faltantes son aquellas variables numéricas que se miden en dos momentos del día, esto nos puede ayudar para completar una con la otra ya que en gran medida estas variables son bastante dependientes y podemos sacar una buena correlación para completar una con la otra.
 
-
-Para esto utilizaremos el metodo de imputacion KNN, con estos datos consideramos que se pueden completar perfectamente estos valores faltantes.
+Para esto utilizaremos el metodo de imputación KNN, con estos datos consideramos que se pueden completar perfectamente estos valores faltantes.
 
 Variables Temp9am & Temp3pm: 
 ```{r imputacion1}
@@ -682,7 +668,7 @@ par(mfrow=c(1,1))
 train %>% select(Temp9am, Temp3pm) %>% marginplot()
 ```
 
-Viendo esta grafica podemos decir que tiene sentido utilizar la imputacion mediante KNN.
+Viendo esta gráfica podemos decir que tiene sentido utilizar la imputación mediante KNN.
 
 ```{r imputacion11}
 #Posible imputación simple mediante un algoritmo de clustering k-NN (con la función VIM:kNN)
@@ -693,7 +679,7 @@ train_imputed <- kNN(train, variable=c("Temp9am","Temp3pm"))
 
 ```
 
-Comprobamos si nuestra muestra inicial modifica su densidad para asegurarnos de que esta imputacion funciona y no hemos generado ningun valor que no coincida.
+Comprobamos si nuestra muestra inicial modifica su densidad para asegurarnos de que esta imputación funciona y no hemos generado ningún valor que no coincida.
 
 ```{r imputacion2}
 #Comprobaciones:
@@ -704,8 +690,7 @@ plot(density(train$Temp3pm, na.rm = T), col=2, main="Temp3pm")
 lines(density(train_imputed$Temp3pm), col=3) 
 ```
 
-Como podemos comprobar, apenas se aprecia la linea roja que esta debajo de la densidad inicial por lo que podemos decir que no cambia 
-
+Como podemos comprobar, apenas se aprecia la linea roja que esta debajo de la densidad inicial por lo que podemos decir que no cambia.
 
 Variables MinTemp & MaxTemp:
 ```{r imputacion22}
@@ -725,7 +710,8 @@ lines(density(train_imputed$MaxTemp),col=3)
 plot(density(train$MinTemp,na.rm = T),col=2,main="MinTemp")
 lines(density(train_imputed$MinTemp),col=3)
 ```
-En este caso la imputacion de datos faltantes tambien funciona
+
+En este caso la imputación de datos faltantes también funciona.
 
 Variables Pressure9am & Pressure3pm:
 ```{r imputacion humidity2}
@@ -746,7 +732,7 @@ lines(density(train_imputed$Pressure3pm),col=3)
 plot(density(train$Pressure9am,na.rm = T),col=2,main="Pressure9am")
 lines(density(train_imputed$Pressure9am),col=3)
 ```
-Podemos utilizar esta imputacion en la presion.
+Podemos utilizar esta imputación en la presión.
 
 Variables Humidity9am & Humidity3pm:
 ```{r imputacion humidity1.5}
@@ -767,20 +753,15 @@ lines(density(train_imputed$Humidity3pm),col=3)
 plot(density(train$Humidity9am,na.rm = T),col=2,main="Humidity9am")
 lines(density(train_imputed$Humidity9am),col=3)
 ```
-Podemos utilizar esta imputacion en la humedad.
-
-
+Podemos utilizar esta imputación en la humedad.
 
 Variables Rainfall & Raintoday:
-Podriamos pensar que estas dos variables van de la mano, ya que si la premisa se cumple, cuando la variable Rainfall es 0 es que ese mismo dia no ha llovido, por ello haremos un estudio de los datos faltantes.
+Podríamos pensar que estas dos variables van de la mano, ya que si la premisa se cumple, cuando la variable Rainfall es 0 es que ese mismo día no ha llovido, por ello haremos un estudio de los datos faltantes.
 ```{r imputacion faltantes RainToday y Rainfall}
 trainSelect2 <- train %>% select(RainToday, Rainfall)
 gg_miss_upset(trainSelect2)
 ```
 Esto quiere decir que los datos faltantes son exactamente los mismos, por lo que vamos a proceder a completar los datos faltantes de la variable rainfall y con ellos completaremos los datos de Raintoday.
-
-
-
 
 Otras variables que puede tener sentido relacionar es la cantidad de lluvia con la humedad.
 
@@ -854,12 +835,8 @@ test_imputed$RainTomorrow <- ifelse(test_imputed$RainTomorrow  == "Yes", 1, 0)
 test_imputed$RainTomorrow  = as.numeric(test_imputed$RainTomorrow )
 ```
 
-
-
-
-
 Variables Cloud3pm & Cloud9am:
-Para estas variable sutilizamos la libreria mice con el metodo de la imputacion multiple y comprobamos que no varia la densidad de los valores
+Para estas variable sutilizamos la librería mice con el metodo de la imputación múltiple y comprobamos que no varía la densidad de los valores.
 
 ```{r imputacion Clouds2}
 par(mfrow=c(1,1))
@@ -882,11 +859,9 @@ test_imputed$Cloud9am <- test_imputed1$Cloud9am
 ```
 
 
-Variable Evaporation:
+Variable Evaporation
 
-En esta Varible utilizaremos la media de cada estacion y con esto sustituiremos los valores faltantes.
-
-
+En esta varible utilizaremos la media de cada estación y con esto sustituiremos los valores faltantes.
 ```{r Evaporation5}
 summer <- filter(train, Season == "summer")
 evaporationMeanSummer <- mean(summer$Evaporation,na.rm = TRUE)
@@ -903,7 +878,7 @@ evaporationMeanFall
 evaporationMeanWinter
 ```
 
-Aqui podemos observar como la variable de evaporacion varia bastante en funcion de la epoca del año, en este caso por orden tenemos Verano, Primavera, Otoño e Invierno de mayor a menor, como en el resto de datos de esta variable solo utiliza un decimal haremos lo mismo para nuestras imputaciones.
+Aquí podemos observar como la variable de evaporación varia bastante en función de la época del año, en este caso por orden tenemos Verano, Primavera, Otoño e Invierno de mayor a menor, como en el resto de datos de esta variable sólo utiliza un decimal haremos lo mismo para nuestras imputaciones.
 
 ```{r Evaporation2}
 
@@ -931,11 +906,9 @@ test_imputed$Evaporation[which(is.na(test_imputed$Evaporation))] <- ifelse(test_
                                                                       0))))
 ```
 
-Variable Sunshine:
+Variable Sunshine
 
-En esta Varible tambien utilizaremos la media de cada estacion y con esto sustituiremos los valores faltantes.
-
-
+En esta variable también utilizaremos la media de cada estación y con esto sustituiremos los valores faltantes.
 ```{r Sunshine}
 SunshineMeanSummer <- mean(summer$Sunshine,na.rm = TRUE)
 SunshineMeanWinter <- mean(winter$Sunshine,na.rm = TRUE)
@@ -948,7 +921,7 @@ SunshineMeanFall
 SunshineMeanWinter
 ```
 
-Aqui podemos observar como la variable de Sunshine varia bastante en funcion de la epoca del año, en este caso por orden tenemos Verano, Primavera, Otoño e Invierno de mayor a menor, como en el resto de datos de esta variable solo utiliza un decimal haremos lo mismo para nuestras imputaciones.
+Aquí podemos observar como la variable de Sunshine varía bastante en función de la época del año, en este caso por orden tenemos Verano, Primavera, Otoño e Invierno de mayor a menor, como en el resto de datos de esta variable solo utiliza un decimal haremos lo mismo para nuestras imputaciones.
 
 ```{r Sunshine2}
 
@@ -978,22 +951,16 @@ test_imputed$Sunshine[which(is.na(test_imputed$Sunshine))] <- ifelse(test_impute
 ```
 
 
-
-
 Variables WindDir & WindSpeed:
-Para imputar los datos faltantes en la direccion del viento y en la velocidad utilizaremos la velocidad media que hemos obtenido antes en funcion de la direccion que tenia el aire a esa misma hora, asi nos aseguramos de dar un valor mas acorde a la realidad con los datos de los que disponemos.
+Para imputar los datos faltantes en la dirección del viento y en la velocidad utilizaremos la velocidad media que hemos obtenido antes en función de la dirección que tenía el aire a esa misma hora, así nos aseguramos de dar un valor mas acorde a la realidad con los datos de los que disponemos.
 
-Para ello primero tenemos que hacer un estudio de las variables y sus datos faltantes
-
-
+Para ello, primero tenemos que hacer un estudio de las variables y sus datos faltantes.
 ```{r imputacion faltantes windir y winspeed}
 trainSelect <- train %>% select(WindDir9am, WindDir3pm, WindSpeed9am,WindSpeed3pm)
 gg_miss_upset(trainSelect)
 ```
 
-Con esta informacion podemos concluir que los datos que mas faltan son los de la mañana y destacando los datos de la direccion a las 9 de la mañana. Teniendo en cuenta que en el caso de WindDir3pm, WindSpeed9am, WindSpeed3pm, la mayoria de datos NA corresponden con valores faltantes en los demas valores no seremos capaces de imputar dichos valores con estos datos.
-
-
+Con esta información podemos concluir que los datos que mas faltan son los de la mañana y destacando los datos de la dirección a las 9 de la mañana. Teniendo en cuenta que en el caso de WindDir3pm, WindSpeed9am, WindSpeed3pm, la mayoría de datos NA corresponden con valores faltantes en los demas valores no seremos capaces de imputar dichos valores con estos datos.
 
 ```{r imputacion dirspeed}
 test <- train %>%
@@ -1002,8 +969,7 @@ test <- train %>%
 test
 ```
 
-para poder completar todos los valores vamos a imputar datos en la velocidad del viento. Para ello haremos uso del mice con el que gracias a los valores de la presion a la misma hora imputaremos los valores faltantes.
-
+Para poder completar todos los valores vamos a imputar datos en la velocidad del viento. Para ello haremos uso del mice con el que gracias a los valores de la presion a la misma hora imputaremos los valores faltantes.
 
 ```{r imputacion Clouds}
 par(mfrow=c(1,1))
@@ -1045,47 +1011,37 @@ test_imputed$WindGustSpeed[which(is.na(train_imputed$WindGustSpeed))] <- rowMean
 ```
 
 
-
-
 Transformaciones de variables cualitativas
 ```{r Eliminar imputaciones }
 train_imputed[c("Temp9am_imp","Temp3pm_imp" ,"Pressure9am_imp","Pressure3pm_imp","MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Humidity3pm_imp","Rainfall_imp")] <- list(NULL)
 test_imputed[c("Temp9am_imp","Temp3pm_imp" ,"Pressure9am_imp","Pressure3pm_imp","MaxTemp_imp","MinTemp_imp", "Humidity9am_imp","Humidity3pm_imp","Rainfall_imp")] <- list(NULL)
 ```
 
-```{r dummy var }
-train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm"))
-test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", "Season","WindGustDir","WindDir9am","WindDir3pm"))
-```
-
-
-
 Transformaciones de variables cuantitativas
-La única que no parece seguir una distribución normal es la variable RainFall
+
+La única que no parece seguir una distribución normal es la variable RainFall. Analizamos cual es la mejor transformación que podemos aplicar.
 
 ```{r cualitativas }
 p1 <- train_imputed %>% select(Rainfall, Season) %>%
   na.omit() %>%
   ggplot(aes(x=Rainfall, colour=Season)) +
   geom_density()
-#(train_imputed$Rainfall)+0.01
+
 aux <- filter(train_imputed,train_imputed$Rainfall>0)
-p2 <- aux %>% mutate(inv_Rainfall = 1/ (Rainfall)) %>%
+p2 <- aux %>% mutate(inv_Rainfall = 1/ (Rainfall + 1)) %>%
   select(Season, inv_Rainfall) %>%
   na.omit() %>%
   ggplot(aes(x=inv_Rainfall, colour=Season)) +
   geom_density()
 
-p3 <- train_imputed %>% mutate(log10_Rainfall = log10(Rainfall + 0.01)) %>%  #+ 1.01
+p3 <- train_imputed %>% mutate(log10_Rainfall = log10(Rainfall + 1)) %>%
   select(Season, log10_Rainfall) %>%
   na.omit() %>%
   ggplot(aes(x=log10_Rainfall, colour=Season)) +
   geom_density()
 
-
-#Sigue sin quedar una distribución normal...
 grid.arrange(p1, p2, p3, nrow = 1)
-p2
+
 aux %>% select(Rainfall) %>%
   na.omit() %>%
   symbox(~ Rainfall, data = .)
@@ -1097,8 +1053,10 @@ aux %>% select(Rainfall) %>%
 train_imputed$Rainfall_Inv <- 1/ (train_imputed$Rainfall + 1)
 test_imputed$Rainfall_Inv <- 1/ (test_imputed$Rainfall + 1)
 ```
-Con esta informacion podemos concluir que para transformarla lo mejor que podemos hacer es utilizar la inversa sin tener en cuenta los ceros de la variable rainfall, que equivaldrian a un "No" en la variable RainToday
 
+Con esta información podemos concluir que para transformarla lo mejor que podemos hacer es utilizar la inversa y sumarle 1 para poder realizar bien la transformación.
+
+Comprobamos algunas variables que sigan distribución normal.
 
 ```{r Transformaciones}
 #Resto de variables: siguen distribución normal
@@ -1108,24 +1066,11 @@ qqline(train_imputed$MinTemp, col="red")
 qqnorm(train_imputed$MaxTemp, ylab="MaxTemp")
 qqline(train_imputed$MaxTemp, col="red")
 
-qqnorm(train_imputed$Temp3pm, ylab="Temp3pm")
-qqline(train_imputed$Temp3pm, col="red")
-
-qqnorm(train_imputed$Temp9am, ylab="Temp9am")
-qqline(train_imputed$Temp9am, col="red")
-
 qqnorm(train_imputed$Pressure9am, ylab="Pressure9am")
 qqline(train_imputed$Pressure9am, col="red")
-
-qqnorm(train_imputed$Pressure3pm, ylab="Pressure3pm")
-qqline(train_imputed$Pressure3pm, col="red")
-
-
-dim(train_imputed)
-dim(test_imputed)
-
 ```
 
+Resumen de valores nulos
 
 ```{r check na}
 # check NA
@@ -1134,27 +1079,16 @@ train_imputed %>%
   t()
 ```
 
+El resto de nulos los eliminamos por ser un pequeño porcentaje.
 
-
-
-
-
-
-
-## Modelo
-
-
-
-El modelo utilizado es una regresion logistica, sacamos los valores de la recta para cada variable mediante lasso
+## Modelo 1: selección con Lasso sobre el dataset original.
 
 ### Estandarización:
-Aplicamos la estandarización con las medias y varianzas de train.
 
+Aplicamos la estandarización con las medias y varianzas de train.
 ```{r estandarizacion}
 #Estandarización
-numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", 
-                  "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" ,
-                  "Pressure3pm" , "Temp9am", "Temp3pm", "Rainfall_inv")
+numeric_vars <- c("MinTemp","MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustSpeed", "WindSpeed9am", "WindSpeed3pm", "Humidity9am", "Humidity3pm","Pressure9am" , "Pressure3pm" , "Temp9am", "Temp3pm", "Rainfall_inv")
 
 preprocessParams <- preProcess(train_imputed[numeric_vars], method=c("center", "scale"))
 train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_vars])
@@ -1162,9 +1096,10 @@ train_imputed[numeric_vars] <- predict(preprocessParams, train_imputed[numeric_v
 #Aplicamos la estandarización con las medias y varianzas de train
 test_imputed[numeric_vars] <- predict(preprocessParams, test_imputed[numeric_vars])
 ```
-Creación variables dummies para `Location`, `Season`, `WindGustDir` y borrado de las anteriores.
+
+Creación variables dummies para `Location`, `Season`, `WindGustDir` y borrado de las originales.
+
 ```{r variables dummies}
-#Procesado de variables cualitativas: creación variables dummies
 train_imputed <- dummy_cols(train_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
 test_imputed <- dummy_cols(test_imputed, select_columns = c("Location", 'Season', 'WindGustDir'))
 
@@ -1172,8 +1107,6 @@ train_imputed$Location <- NULL
 train_imputed$Season <- NULL
 train_imputed$Date <- NULL
 train_imputed$WindGustDir <- NULL
-
-
 
 test_imputed$Location <- NULL
 test_imputed$Season <- NULL
@@ -1184,6 +1117,9 @@ test_imputed$WindDir9am_NA <- NULL
 ```
 
 ### Selección de variables usando Lasso
+
+El modelo utilizado es una regresión logística, realizamos la selección de variables mediante Lasso. Para ello, primero seleccionamos el lambda óptimo y con éste seleccionamos las variables.
+
 ```{r variables lasso}
 train_imputed_sinNA = na.omit(train_imputed)
 x_train = train_imputed_sinNA[, !names(train_imputed_sinNA) %in% c("RainTomorrow")] 
@@ -1194,11 +1130,6 @@ test_imputed_sinNA = na.omit(test_imputed)
 x_test = test_imputed_sinNA[, !names(test_imputed_sinNA) %in% c("RainTomorrow")] 
 y_test = test_imputed_sinNA$RainTomorrow
 
-dim(test_imputed_sinNA)
-dim(train_imputed_sinNA)
-
-
-#Primero vemos Lasso
 x = model.matrix(RainTomorrow~ ., train_imputed_sinNA)[,-1]
 
 lambda_seq <- 10^seq(2, -2, by = -.1)
@@ -1212,26 +1143,21 @@ lasso_best <- glmnet(x, y_train, alpha = 1, lambda = best_lam)
 c<-coef(lasso_best,s=best_lam,exact=TRUE)
 inds<-which(c!=0)
 variables<-row.names(c)[inds]
-variables
+
 ```
 
+Variables seleccionados por Lasso
+
+```{r variables seleccionadas por Lasso}
+variables
+```
 
 ### Modelo usando las variables Lasso
 
 ```{r modelo1}
-new_train = train_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S",      
-                                           "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday",          
-                                           "Location_Adelaide", "Location_Sydney", "Season_summer","WindGustDir_ENE", "WindGustDir_NNW",   
-                                           "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "RainTomorrow") 
+new_train = train_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S",  "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday", "Location_Adelaide", "Location_Sydney", "Season_summer", "WindGustDir_ENE", "WindGustDir_NNW", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "RainTomorrow") 
   
-
-new_test = test_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S",      
-                                         "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday",          
-                                         "Location_Adelaide", "Location_Sydney", "Season_summer","WindGustDir_ENE", "WindGustDir_NNW",   
-                                         "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "RainTomorrow")
-
-
-
+new_test = test_imputed_sinNA %>% select("Sunshine","WindGustSpeed", "WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "Humidity3pm", "Pressure3pm", "Cloud3pm", "RainToday", "Location_Adelaide", "Location_Sydney", "Season_summer", "WindGustDir_ENE", "WindGustDir_NNW","WindDir9am_N", "WindDir9am_NNE", "WindDir9am_S", "WindDir3pm_NNE", "RainTomorrow")
 
 #Modelo
 #Entrenamiento
@@ -1239,20 +1165,42 @@ glm_model_train = glm(RainTomorrow~ ., data=new_train, family= binomial)
 
 #Test
 glm_test = predict(glm_model_train, newdata = new_test, type = "response")
+```
 
+Resumen del modelo
+
+```{r evaluación modelo1}
 #Evaluación modelo
-
 #Summary
 summary(glm_model_train)
 #Tabla de ganancia
 logistic_gains_table <- blr_gains_table(glm_model_train, data = new_train)
+```
+
+Vemos que las variables más significativas son los rayos de sol, la velocidad del viento, la humedad, la presión, si ha llovido hoy y si es la ciudad Adelaide, dónde llueve mucho más respecto el resto de ciudades en invierno.
+
+ Curva ROC del modelo
+ 
+```{r evaluación modelo1}
 #Curva ROC
 blr_roc_curve(logistic_gains_table)
-#Matriz de confusión
+```
 
+Matriz de confusión
+
+```{r evaluación modelo1}
+#Matriz de confusión
 umbral_dec = 0.46
 glm_test <- ifelse(glm_test >= umbral_dec, 1, 0)
 glm_test <- factor(glm_test, levels = c(0,1))
 tabla_conf <- table(glm_test, new_test$RainTomorrow)
 caret::confusionMatrix(tabla_conf, positive = '1')
 ```
+
+Observando la matriz de confusión se puede ver que el modelo no obtiene buenos resultados pues el número de falsos positivos es muy alto y casi igual al de verdaderos positivos. Por lo que el modelo predice bien cuando no llueve pero no acaba de predecir bien cuando sí va a llover.
+
+Probamos otros modelos para ver si el resultado mejora.
+
+## Modelo 2: selección con Lasso sobre el dataset con interacción de variables.
+
+Como hay muchas variables que están muy relacionadas entre ellas probamos a combinarlas para introducirlas al modelo y que de esta manera no se pierda información.
