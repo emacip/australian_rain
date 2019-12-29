@@ -82,7 +82,7 @@ validation <- temp[-test_val_ind, ]
 
 ```
 
-```{r head, include=FALSE}
+```{r head}
 head(train)
 ```
 
