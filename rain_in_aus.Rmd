@@ -35,7 +35,7 @@ Con este dataset tan grande lo primero que nos planteamos fue centrarnos en dos 
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE)
 ```
 
 ```{r librerias y seed, echo = FALSE, include=FALSE, message=FALSE}
@@ -67,6 +67,7 @@ library(corrplot)
 library(pROC)
 library(ggthemes)
 library(cowplot)
+library(knitr)
 ```
 
 ```{r Dataset train y test, include=FALSE}
@@ -82,7 +83,7 @@ validation <- temp[-test_val_ind, ]
 
 ```
 
-```{r head}
+```{r head, echo = FALSE, results='asis', include=FALSE}
 head(train)
 ```
 
